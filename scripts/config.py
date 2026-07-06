@@ -21,6 +21,7 @@ class Paths:
     ica_catastrophes: Path = _ONEDRIVE / "ICA-Historical-Normalised-Catastrophe-Master-Updated-2026_02.csv"
     tfb_history: Path = Path.home() / "Downloads/TFBsHistory_20260706123204.csv"
     fire_polygons_geo: Path = _FIRES_SWTS / "bushfire_events_geo.csv"
+    fire_polygons_gdb: Path = _FIRES_SWTS / "Bushfire Extents - Historical (2025).gdb"
     swt_climatology: Path = _FIRES_SWTS / "SWT_climatology_v20260129.csv"
     aus_states_geojson: Path = _FIRES_SWTS / "gadi/aus_states.geojson"
     firms_dir: Path = DATA_RAW / "firms"          # USER ACTION: FIRMS archive CSVs
