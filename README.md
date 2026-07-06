@@ -12,6 +12,24 @@ extreme seasons, and later attributed to synoptic weather types and weather obje
 
 PhD project — Samuel Marcus, Monash University / ARC 21st Century Weather CRC.
 
+**Full plain-language methodology (every step and statistical test explained):
+[`docs/METHODOLOGY.md`](docs/METHODOLOGY.md).**
+
+## Headline results so far
+
+- **DLI validated against 12 benchmark events:** 9/12 score ≥ 93rd
+  within-tier percentile (Black Saturday 99.9th, Ash Wednesday 99.7th,
+  Canberra 2003 99.6th). The misses are understood and documented, not
+  tuned away.
+- **Fire record cross-validated:** FIRMS vs the independent DEA Hotspots
+  archive agrees at Spearman 0.92 (daily MODIS counts, 2002–2018), passing
+  the ≥ 0.90 gate that covers Tier 2 end-to-end.
+- **Phase 2 SWT attribution:** high-demand days are enriched under AM-E
+  (RR 1.52 [1.30–1.74]) and AM-B (1.27 [1.02–1.50]); TH-C reaches 2.00 in
+  the modern era. The fire-danger champion FH-B (danger RR 2.13 in
+  Fires_SWTs) shows **no** demand enrichment — demand is multi-hazard, and
+  the weather types that drive it are not the fire blocking highs.
+
 ## Confidence tiers
 
 | Tier | Period | Fire-activity basis |
@@ -52,6 +70,7 @@ Every component carries a per-tier availability flag; nothing NaN-fills silently
 - `gadi/` — PBS scripts for anything too heavy locally (qsub only, never interactive)
 - `tests/` — unit tests for pure logic (`/opt/anaconda3/bin/python3 -m pytest tests/`)
 - `docs/superpowers/specs/` — design documents; `docs/superpowers/plans/` — implementation plans
+- `docs/METHODOLOGY.md` — plain-language walkthrough of every step and test
 - `CLAUDE.md` — working rules, environment traps, and the DLI recipe (read first)
 
 ## Environment
