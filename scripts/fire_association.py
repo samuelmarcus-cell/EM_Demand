@@ -113,6 +113,41 @@ def load_fire_polygons(
     return gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), crs=_ALBERS)
 
 
+def load_polygon_windows(gdb_path: Path | None = None) -> pd.DataFrame:
+    """All-era polygon burn windows, attributes only (no geometry).
+
+    Tier-3 fire activity: with no satellite record before Nov 2000, daily
+    fire activity is the count of mapped fires whose burn window covers the
+    day. Windows use the same extinguish > capture > ignition+21d cascade.
+    """
+    import pyogrio
+
+    gdb_path = Path(gdb_path or PATHS.fire_polygons_gdb)
+    cols = ["fire_id", "ignition_date", "capture_date", "extinguish_date", "area_ha", "state"]
+    parts = [
+        temporal_windows(
+            pyogrio.read_dataframe(str(gdb_path), layer=layer, read_geometry=False, columns=cols)
+        )
+        for layer in _GDB_LAYERS
+    ]
+    return pd.concat(parts, ignore_index=True)
+
+
+def burn_window_daily(windows: pd.DataFrame, start=None, end=None) -> pd.DataFrame:
+    """Daily national count of active burn windows: date, n_windows_active."""
+    w = windows.dropna(subset=["window_start", "window_end"])
+    starts = w["window_start"].dt.normalize().value_counts()
+    # +1 day: a window ending on day D is still active on D
+    ends = (w["window_end"].dt.normalize() + pd.Timedelta(days=1)).value_counts()
+    delta = starts.sub(ends, fill_value=0).sort_index()
+    active = delta.cumsum()
+    idx = pd.date_range(
+        start or delta.index.min(), end or w["window_end"].max().normalize(), freq="D", name="date"
+    )
+    out = active.reindex(idx, method="ffill").fillna(0).astype(int)
+    return out.rename("n_windows_active").reset_index()
+
+
 def dedupe_matches(pairs: pd.DataFrame) -> pd.DataFrame:
     """One fire per hotspot: tightest temporal window, then smallest area."""
     return (
