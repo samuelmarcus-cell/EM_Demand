@@ -28,5 +28,31 @@ def attach_swt(panel, swt_csv=None):
     return panel.merge(swt, on="date", how="left")
 
 
+def flag_high_demand(panel, threshold_pct=0.95):
+    thresh = panel.groupby("confidence_tier")["dli"].transform(
+        lambda s: s.quantile(threshold_pct)
+    )
+    return (panel["dli"] >= thresh).fillna(False)
+
+
+def swt_rr_point(df):
+    """Per-SWT relative risk of a high-demand day, month-matched baseline.
+
+    RR = observed high-rate under the SWT / high-rate expected if the SWT
+    had no effect beyond its monthly occurrence pattern.
+    """
+    d = df.dropna(subset=["swt_type"]).copy()
+    d["month"] = d["date"].dt.month
+    p_high_month = d.groupby("month")["high"].mean()
+    rows = []
+    for swt, g in d.groupby("swt_type"):
+        n_days = len(g)
+        n_high = int(g["high"].sum())
+        expected = (g["month"].map(p_high_month)).mean()
+        rr = (n_high / n_days) / expected if expected > 0 else float("nan")
+        rows.append({"swt_type": swt, "n_days": n_days, "n_high": n_high, "rr": rr})
+    return pd.DataFrame(rows).sort_values("rr", ascending=False).reset_index(drop=True)
+
+
 def demand_swt_rr(panel, dli_threshold_pct=0.95):
     raise NotImplementedError("Phase 2")

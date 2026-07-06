@@ -6,7 +6,11 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.phase2_attribution.swt_attribution import attach_swt
+from scripts.phase2_attribution.swt_attribution import (
+    attach_swt,
+    flag_high_demand,
+    swt_rr_point,
+)
 
 
 def _panel(start="2000-01-01", periods=6):
@@ -30,3 +34,34 @@ def test_attach_swt(tmp_path):
     assert len(out) == 6  # left join: panel rows preserved
     assert out.loc[out.date == "2000-01-01", "swt_type"].item() == "WH-A"
     assert out.loc[out.date == "2000-01-05", "swt_type"].isna().all()
+
+
+def test_flag_high_demand_within_tier():
+    dates = pd.date_range("2000-01-01", periods=40, freq="D")
+    panel = pd.DataFrame({
+        "date": dates,
+        "dli": list(np.linspace(0, 1, 20)) * 2,
+        "confidence_tier": [2] * 20 + [1] * 20,
+    })
+    high = flag_high_demand(panel, threshold_pct=0.95)
+    # each tier contributes its own top ~5% (the max value at least)
+    assert high[panel.confidence_tier == 2].sum() >= 1
+    assert high[panel.confidence_tier == 1].sum() >= 1
+
+
+def test_swt_rr_point_month_matched():
+    # Jan: base high-rate 0.5. SWT "A" only in Jan, always high -> RR 2.
+    # SWT "B" only in Jan, never high -> RR 0. Month matching means the
+    # July-only SWT "C" (high-rate 0 in a month whose base rate is 0)
+    # yields NaN, not a spurious signal.
+    rows = []
+    for d in pd.date_range("2000-01-01", "2000-01-10"):
+        rows.append({"date": d, "swt_type": "A" if d.day <= 5 else "B",
+                     "high": d.day <= 5})
+    for d in pd.date_range("2000-07-01", "2000-07-05"):
+        rows.append({"date": d, "swt_type": "C", "high": False})
+    out = swt_rr_point(pd.DataFrame(rows)).set_index("swt_type")
+    assert out.loc["A", "rr"] == 2.0
+    assert out.loc["B", "rr"] == 0.0
+    assert np.isnan(out.loc["C", "rr"])
+    assert out.loc["A", "n_days"] == 5 and out.loc["A", "n_high"] == 5
