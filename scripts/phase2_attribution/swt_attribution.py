@@ -7,14 +7,25 @@ per season? Follows the Fires_SWTs relative-risk framework (RR of a
 high-DLI day conditional on SWT, with bootstrap CIs), but with demand — not
 fire occurrence — as the outcome variable.
 
-Planned interface:
+Interface:
     attach_swt(panel, swt_csv) -> panel + swt_type column
-    demand_swt_rr(panel, dli_threshold_pct=0.95) -> per-SWT RR table
+    flag_high_demand(panel, threshold_pct) -> bool Series (within-tier threshold)
+    swt_rr_point(df) -> per-SWT RR table (month-matched baseline)
+    demand_swt_rr(panel, ...) -> RR table with moving-block bootstrap CIs
 """
 
+import numpy as np
+import pandas as pd
 
-def attach_swt(panel, swt_csv):
-    raise NotImplementedError("Phase 2")
+
+def attach_swt(panel, swt_csv=None):
+    from scripts.config import PATHS
+
+    swt = pd.read_csv(swt_csv or PATHS.swt_climatology)
+    swt["date"] = pd.to_datetime(swt["time"]).dt.normalize()
+    swt = swt.rename(columns={"assigned_SWT": "swt_type"})[["date", "swt_type"]]
+    swt = swt.drop_duplicates("date")
+    return panel.merge(swt, on="date", how="left")
 
 
 def demand_swt_rr(panel, dli_threshold_pct=0.95):
