@@ -4,6 +4,7 @@ import pandas as pd
 
 _LOCAL_UTC_OFFSET = pd.Timedelta(hours=10)  # AEST, as everywhere else
 
+# run_dli.py imports BENCHMARKS from here — never import run_dli in this module (circular)
 BENCHMARKS = {
     "Ash Wednesday": "1983-02-16",
     "NSW Jan 1994": "1994-01-08",

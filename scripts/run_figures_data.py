@@ -11,6 +11,7 @@ from scripts.config import DATA_DERIVED
 from scripts.figures_data import BENCHMARKS, benchmark_table, hotspots_for_days
 
 EXPORT = DATA_DERIVED.parent / "export"
+EXPORT.mkdir(parents=True, exist_ok=True)
 
 # map days: iconic fire benchmarks in the satellite era + the top-2 DLI days
 MAP_DAYS = ["2003-01-18", "2009-02-07", "2011-02-02", "2013-01-04", "2020-01-04"]

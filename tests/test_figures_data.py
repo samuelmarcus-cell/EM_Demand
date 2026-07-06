@@ -31,6 +31,7 @@ def test_benchmark_table_within_tier_pct():
         "confidence_tier": 2,
     })
     out = benchmark_table(panel, {"Test event": "2009-01-10"})
+    assert set(out.columns) == {"name", "date", "dli", "confidence_tier", "pct"}
     row = out.iloc[0]
     assert row["name"] == "Test event"
     assert row["pct"] == 0.9  # 9 of 10 tier-2 days are below it
