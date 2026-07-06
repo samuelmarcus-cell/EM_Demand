@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+data/raw/firms/*
+data/raw/dea_hotspots/*
+data/raw/bom_tc/*
+data/raw/drfa/*
+data/raw/local_copies/*
+data/derived/*
+!data/derived/.gitkeep
+.DS_Store
