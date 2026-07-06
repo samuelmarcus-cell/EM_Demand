@@ -59,33 +59,46 @@ def temporal_windows(df: pd.DataFrame, gate_days: int = HOTSPOT_TEMPORAL_GATE_DA
     return df[ign.notna()].copy()
 
 
+_KEEP_COLS = [
+    "fire_uid", "ignition_date", "window_start", "window_end", "window_days",
+    "jan1_ignition", "area_ha", "state", "geometry",
+]
+
+
 def load_fire_polygons(
-    gdb_path: Path | None = None, min_window_end: str = "2000-11-01"
+    gdb_path: Path | None = None, min_window_end: str = "2000-11-01", chunk: int = 20000
 ) -> gpd.GeoDataFrame:
     """Buffered, windowed fire polygons in EPSG:3577 for the hotspot era.
 
     Only fires whose temporal window ends on/after min_window_end (start of
     the MODIS record) are kept — earlier fires can never match a hotspot.
+
+    The gdb is streamed in chunks: raw multipolygons for all 347k fires do
+    not fit in memory at once, but the era-filtered, simplified, buffered
+    geometries do. fire_uid encodes layer prefix + feature position, stable
+    across runs.
     """
+    import pyogrio
+
     gdb_path = Path(gdb_path or PATHS.fire_polygons_gdb)
+    min_end = pd.Timestamp(min_window_end)
+    cols = ["fire_id", "fire_name", "ignition_date", "capture_date", "extinguish_date", "area_ha", "state"]
+
     parts = []
     for layer in _GDB_LAYERS:
-        g = gpd.read_file(
-            gdb_path,
-            layer=layer,
-            columns=["fire_id", "fire_name", "ignition_date", "capture_date", "extinguish_date", "area_ha", "state"],
-        )
-        g["layer"] = layer
-        parts.append(g)
-    fires = pd.concat(parts, ignore_index=True)
-    fires["fire_uid"] = fires["layer"].str.split("_").str[0] + "_" + fires.index.astype(str)
-
-    fires = temporal_windows(fires)
-    fires = fires[fires["window_end"] >= pd.Timestamp(min_window_end)].copy()
-
-    fires = fires.to_crs(_ALBERS)
-    fires["geometry"] = fires.geometry.simplify(100).buffer(HOTSPOT_BUFFER_KM * 1000)
-    return fires.reset_index(drop=True)
+        prefix = layer.split("_")[0]
+        n = pyogrio.read_info(gdb_path, layer=layer)["features"]
+        for skip in range(0, n, chunk):
+            g = gpd.read_file(gdb_path, layer=layer, columns=cols, rows=slice(skip, skip + chunk))
+            g["fire_uid"] = [f"{prefix}_{skip + i}" for i in range(len(g))]
+            g = temporal_windows(g)
+            g = g[g["window_end"] >= min_end]
+            if g.empty:
+                continue
+            g = g.to_crs(_ALBERS)
+            g["geometry"] = g.geometry.simplify(100).buffer(HOTSPOT_BUFFER_KM * 1000, resolution=4)
+            parts.append(g[_KEEP_COLS])
+    return gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), crs=_ALBERS)
 
 
 def dedupe_matches(pairs: pd.DataFrame) -> pd.DataFrame:
