@@ -24,12 +24,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-from scripts.config import (
-    HOTSPOT_BUFFER_KM,
-    HOTSPOT_TEMPORAL_GATE_DAYS,
-    OLE_NULL_DATE,
-    PATHS,
-)
+from scripts.config import HOTSPOT_BUFFER_KM, HOTSPOT_TEMPORAL_GATE_DAYS, PATHS
 
 _ALBERS = "EPSG:3577"
 _GDB_LAYERS = ["National_Historical_Bushfire_Extents_v4", "NT_Historical_Bushfire_Extents_v1"]
@@ -38,12 +33,10 @@ _LOCAL_UTC_OFFSET = pd.Timedelta(hours=10)  # AEST, fixed (no DST) for daily buc
 
 
 def _clean_date(s: pd.Series) -> pd.Series:
-    out = pd.to_datetime(s, errors="coerce")
-    if getattr(out.dt, "tz", None) is not None:
-        out = out.dt.tz_localize(None)
-    out[out == pd.Timestamp(OLE_NULL_DATE)] = pd.NaT
-    out[out < pd.Timestamp("1900-01-01")] = pd.NaT
-    return out
+    # utc=True handles gdb columns with mixed tz offsets; drop tz after.
+    out = pd.to_datetime(s, errors="coerce", utc=True).dt.tz_localize(None)
+    # pre-1900 mask also removes the OLE null sentinel (1899-12-30)
+    return out.mask(out < pd.Timestamp("1900-01-01"))
 
 
 def temporal_windows(df: pd.DataFrame, gate_days: int = HOTSPOT_TEMPORAL_GATE_DAYS) -> pd.DataFrame:
