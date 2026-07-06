@@ -1,0 +1,15 @@
+#!/bin/bash
+#PBS -P gb02
+#PBS -q normal
+#PBS -l ncpus=4
+#PBS -l mem=32GB
+#PBS -l walltime=02:00:00
+#PBS -l storage=gdata/if69+gdata/su28+gdata/gb02+gdata/xp65+gdata/ia39+gdata/rt52
+#PBS -l wd
+#PBS -N ffdi_extract
+#PBS -j oe
+
+module use /g/data/xp65/public/modules
+module load conda/analysis3
+
+python3 gadi/extract_ffdi.py
