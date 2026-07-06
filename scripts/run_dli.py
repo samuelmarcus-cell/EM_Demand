@@ -18,23 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.config import DATA_DERIVED
 from scripts.dli import assemble_components, compute_dli
+from scripts.figures_data import BENCHMARKS
 from scripts.fire_association import burn_window_daily, load_polygon_windows
 from scripts.loaders.tc_besttrack import load_tc_tracks, tc_daily_panel
-
-BENCHMARKS = {
-    "Ash Wednesday": "1983-02-16",
-    "NSW Jan 1994": "1994-01-08",
-    "VIC Dandenongs Jan 1997": "1997-01-21",
-    "Canberra fires 2003": "2003-01-18",
-    "Black Saturday": "2009-02-07",
-    "TC Yasi": "2011-02-02",
-    "TAS Dunalley 2013": "2013-01-04",
-    "NSW Blue Mtns Oct 2013": "2013-10-17",
-    "TAS fires Jan 2016": "2016-01-20",
-    "QLD Deepwater Nov 2018": "2018-11-28",
-    "Black Summer peak": "2020-01-04",
-    "East-coast floods 2022": "2022-02-28",
-}
 
 t0 = time.time()
 dm = pd.read_parquet(DATA_DERIVED / "demand_metrics_daily.parquet")
