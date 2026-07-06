@@ -38,7 +38,7 @@ def cluster_season(x_km, y_km, t_days, eps_km=DBSCAN_EPS_KM, eps_days=DBSCAN_TEM
     return DBSCAN(eps=eps_km, min_samples=_MIN_SAMPLES, algorithm="ball_tree", n_jobs=-1).fit_predict(X)
 
 
-def cluster_unmatched(hotspots: pd.DataFrame) -> pd.DataFrame:
+def cluster_unmatched(hotspots: pd.DataFrame, verbose: bool = False) -> pd.DataFrame:
     """Label unmatched hotspots with satellite-only cluster IDs.
 
     hotspots: harmonised schema rows (lat, lon, datetime_utc, frp).
@@ -56,6 +56,8 @@ def cluster_unmatched(hotspots: pd.DataFrame) -> pd.DataFrame:
 
     parts = []
     for season, grp in hs.groupby("season"):
+        if verbose:
+            print(f"    season {season}: {len(grp)} points", flush=True)
         labels = cluster_season(grp["x_km"].values, grp["y_km"].values, grp["t_days"].values)
         clustered = grp[labels >= 0].copy()
         clustered["fire_uid"] = [f"SAT_{season}_{l}" for l in labels[labels >= 0]]
