@@ -24,10 +24,13 @@ Every component carries a per-tier availability flag; nothing NaN-fills silently
 
 ## Roadmap
 
-- **Phase 1 (this repo, in progress):** daily national demand panel + DLI v0.
-  Components: hotspot-derived fire activity, DRFA daily activations, TC best-track,
-  VIC TFBs, FFDI. Validation against Black Summer, Ash Wednesday 1983, Feb–Mar 2022
-  floods, and other benchmark events.
+- **Phase 1 (complete):** daily national demand panel + DLI, 1979–present.
+  Components: hotspot-derived fire activity (national + SE Aus), DRFA daily
+  activations (event count + LGA footprint), TC best-track (count + max wind),
+  VIC TFBs. Hazard-subindex structure validated against 12 benchmark events
+  (9/12 ≥ 93rd within-tier percentile; see `scripts/run_dli.py`). FFDI and
+  FIRMS-vs-DEA cross-validation are planned next steps
+  (`docs/superpowers/plans/`).
 - **Phase 2 (`scripts/phase2_attribution/`):** attribute demand days to SWTs
   (seasonally-matched bootstrap RR) and weather objects (regionalised presence);
   ERA5 + object composites on demand days. Data: SWT climatology, Gadi weather
@@ -48,7 +51,8 @@ Every component carries a per-tier availability flag; nothing NaN-fills silently
 - `scripts/*.py` — pipeline stages (association, metrics, panel, DLI, exports)
 - `gadi/` — PBS scripts for anything too heavy locally (qsub only, never interactive)
 - `tests/` — unit tests for pure logic (`/opt/anaconda3/bin/python3 -m pytest tests/`)
-- `docs/superpowers/specs/` — design documents
+- `docs/superpowers/specs/` — design documents; `docs/superpowers/plans/` — implementation plans
+- `CLAUDE.md` — working rules, environment traps, and the DLI recipe (read first)
 
 ## Environment
 
