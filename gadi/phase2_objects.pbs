@@ -1,0 +1,17 @@
+#!/bin/bash
+# Phase 2 stub: weather-object presence on top-DLI days (NOT YET RUNNABLE).
+# Requires: demand_daily_panel.parquet copied to Gadi, weather-object files
+# on ia39, and scripts/phase2_attribution/weather_objects.py implemented.
+#PBS -P gb02
+#PBS -q normal
+#PBS -l ncpus=8
+#PBS -l mem=64GB
+#PBS -l walltime=04:00:00
+#PBS -l storage=gdata/if69+gdata/su28+gdata/gb02+gdata/xp65+gdata/ia39+gdata/rt52
+#PBS -l wd
+
+module use /g/data/xp65/public/modules
+module load conda/analysis3
+
+echo "Phase 2 weather-object composites: not yet implemented" >&2
+exit 1
