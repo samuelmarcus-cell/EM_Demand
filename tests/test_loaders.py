@@ -69,3 +69,25 @@ def test_tfb_daily_panel():
     assert panel.loc["2020-01-01", "n_districts"] == 2  # max across declarations
     assert bool(panel.loc["2020-01-02", "tfb_vic"]) is True
     assert bool(panel.loc["2020-01-03", "tfb_vic"]) is False
+
+
+def test_tc_daily_panel():
+    from scripts.loaders.tc_besttrack import tc_daily_panel
+
+    tracks = pd.DataFrame(
+        {
+            "tc_id": ["AU1_01U"] * 2 + ["AU1_02U"],
+            "name": ["Yasi", "Yasi", "Noname"],
+            "datetime_utc": pd.to_datetime(
+                ["2011-02-01 18:00", "2011-02-02 06:00", "2011-02-02 06:00"], utc=True
+            ),
+            "lat": [-17.0, -17.5, -20.0],
+            "lon": [147.0, 146.0, 120.0],
+        }
+    )
+    panel = tc_daily_panel(tracks, start="2011-01-31", end="2011-02-03").set_index("date")
+    # 18:00 UTC Feb 1 = 04:00 AEST Feb 2 -> both points land on Feb 2 local
+    assert bool(panel.loc["2011-01-31", "tc_active"]) is False
+    assert panel.loc["2011-02-02", "n_tcs_active"] == 2
+    assert panel.loc["2011-02-02", "tc_names"] == ["Yasi"]  # placeholders excluded
+    assert panel.loc["2011-02-03", "tc_names"] == []
