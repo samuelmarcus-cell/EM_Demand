@@ -14,7 +14,9 @@ this synchronisation, and no weather type converts danger into fire beyond
 its seasonal timing. The implication: if you care about emergency management,
 the outcome variable should be **demand on emergency resources**, not fire
 occurrence. This project builds that outcome variable: a daily, national
-Demand Load Index from 1979 to the present.
+Demand Load Index from 1979 to the present. The full predecessor analysis —
+code, baked notebook, and figures — is included in this repository under
+[`fires_swts/`](../fires_swts/README.md).
 
 ## 2. Data sources
 

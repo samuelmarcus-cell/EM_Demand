@@ -1,0 +1,13 @@
+#!/bin/bash
+#PBS -P gb02
+#PBS -q normal
+#PBS -l ncpus=4
+#PBS -l mem=16GB
+#PBS -l walltime=12:00:00
+#PBS -l storage=gdata/if69+gdata/su28+gdata/gb02+gdata/xp65
+#PBS -l wd
+#PBS -N wxobjects
+#PBS -j oe
+module use /g/data/xp65/public/modules
+module load conda/analysis3
+python3 weather_objects_extract.py
