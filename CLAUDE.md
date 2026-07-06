@@ -124,6 +124,12 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
 - **FFDI component (v0.2 candidate)**: precomputed daily FFDI zarr exists on
   Gadi (`GADI["ffdi_zarr"]`, 1979–2023). Plan:
   `docs/superpowers/plans/2026-07-07-ffdi-component.md`.
-- **Phase 2 SWT attribution**: SWT daily series ready locally. Plan:
-  `docs/superpowers/plans/2026-07-07-phase2-swt-attribution.md`.
+- **Phase 2 SWT attribution: done 2026-07-07** (`scripts/run_phase2_swt.py`
+  → `data/derived/swt_demand_rr*.csv`; month-matched RR of within-tier
+  ≥95th-pct DLI days, 30-day block bootstrap). Headline: AM-E RR 1.52
+  [1.30–1.74] and AM-B 1.27 [1.02–1.50] are the only all-period SWTs whose
+  CIs clear 1; Tier 1 adds TH-C 2.00 [1.29–2.83]. Suppressed: COL-A 0.19,
+  EH-A 0.39, WCT-B/WH-B 0.52. Contrast with Fires_SWTs *danger* result
+  (FH-B 2.13 top): demand is multi-hazard, so monsoon-family (AM) types
+  outrank the fire blocking highs. FH-B itself is NOT demand-enriched (0.69).
 - Phase 2 weather objects (Gadi), Phase 3, Phase 4: stubs only; not yet planned.
