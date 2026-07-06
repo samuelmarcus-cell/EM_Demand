@@ -9,3 +9,4 @@ data/raw/local_copies/*
 data/derived/*
 !data/derived/.gitkeep
 .DS_Store
+data/export/*
