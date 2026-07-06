@@ -54,5 +54,31 @@ def swt_rr_point(df):
     return pd.DataFrame(rows).sort_values("rr", ascending=False).reset_index(drop=True)
 
 
-def demand_swt_rr(panel, dli_threshold_pct=0.95):
-    raise NotImplementedError("Phase 2")
+def demand_swt_rr(panel, dli_threshold_pct=0.95, n_boot=1000, block_days=30, seed=0):
+    """Per-SWT RR of high-demand days with moving-block bootstrap CIs.
+
+    Blocks (default 30 days) preserve the multi-week persistence of both
+    fire seasons and synoptic regimes; an iid bootstrap would understate
+    the CI width. Resampled rows keep their original dates so the
+    month-matched baseline in swt_rr_point stays honest.
+    """
+    d = panel.dropna(subset=["dli", "swt_type"]).sort_values("date").reset_index(drop=True)
+    d["high"] = flag_high_demand(d, dli_threshold_pct)
+    base = d[["date", "swt_type", "high"]]
+    point = swt_rr_point(base)
+
+    rng = np.random.default_rng(seed)
+    n = len(base)
+    n_blocks = int(np.ceil(n / block_days))
+    boot_rrs = {s: [] for s in point["swt_type"]}
+    for _ in range(n_boot):
+        starts = rng.integers(0, n, size=n_blocks)
+        pos = (starts[:, None] + np.arange(block_days)[None, :]).ravel()[:n] % n
+        sample = base.iloc[pos].reset_index(drop=True)
+        rr_b = swt_rr_point(sample).set_index("swt_type")["rr"]
+        for s in boot_rrs:
+            boot_rrs[s].append(rr_b.get(s, np.nan))
+
+    point["rr_lo"] = [np.nanpercentile(boot_rrs[s], 2.5) for s in point["swt_type"]]
+    point["rr_hi"] = [np.nanpercentile(boot_rrs[s], 97.5) for s in point["swt_type"]]
+    return point[["swt_type", "n_days", "n_high", "rr", "rr_lo", "rr_hi"]]
