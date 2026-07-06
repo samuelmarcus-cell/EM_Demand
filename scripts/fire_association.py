@@ -1,7 +1,7 @@
 """Section 2: hotspot -> fire-polygon association.
 
 Spatially joins FIRMS hotspots to National Historical Bushfire Extents
-footprints (buffered HOTSPOT_BUFFER_KM in EPSG:3577) with a temporal gate
+footprints (dwithin HOTSPOT_BUFFER_KM in EPSG:3577) with a temporal gate
 around each fire's plausible burn window:
 
     window_start = ignition - HOTSPOT_TEMPORAL_GATE_DAYS
@@ -66,19 +66,29 @@ _KEEP_COLS = [
 
 
 def load_fire_polygons(
-    gdb_path: Path | None = None, min_window_end: str = "2000-11-01", chunk: int = 20000
+    gdb_path: Path | None = None,
+    min_window_end: str = "2000-11-01",
+    chunk: int = 20000,
+    verbose: bool = False,
 ) -> gpd.GeoDataFrame:
-    """Buffered, windowed fire polygons in EPSG:3577 for the hotspot era.
+    """Simplified, windowed fire polygons in EPSG:3577 for the hotspot era.
 
     Only fires whose temporal window ends on/after min_window_end (start of
     the MODIS record) are kept — earlier fires can never match a hotspot.
 
     The gdb is streamed in chunks: raw multipolygons for all 347k fires do
-    not fit in memory at once, but the era-filtered, simplified, buffered
-    geometries do. fire_uid encodes layer prefix + feature position, stable
-    across runs.
+    not fit in memory at once, but the era-filtered, simplified geometries
+    do. fire_uid encodes layer prefix + feature position, stable across runs.
     """
     import pyogrio
+
+    # organizePolygons() is O(parts^2) and stalls for hours on monster
+    # multipart extents. SKIP treats every ring as a shell — worst case fills
+    # holes, which is harmless for a proximity-matching footprint. The
+    # resulting geometries can be INVALID (overlapping shells): downstream
+    # ops must be validity-blind — plain Douglas-Peucker simplify and dwithin
+    # distance queries only; topology-preserving simplify or buffer stall.
+    pyogrio.set_gdal_config_options({"OGR_ORGANIZE_POLYGONS": "SKIP"})
 
     gdb_path = Path(gdb_path or PATHS.fire_polygons_gdb)
     min_end = pd.Timestamp(min_window_end)
@@ -89,6 +99,8 @@ def load_fire_polygons(
         prefix = layer.split("_")[0]
         n = pyogrio.read_info(gdb_path, layer=layer)["features"]
         for skip in range(0, n, chunk):
+            if verbose:
+                print(f"    {layer}: {skip}/{n}", flush=True)
             g = gpd.read_file(gdb_path, layer=layer, columns=cols, rows=slice(skip, skip + chunk))
             g["fire_uid"] = [f"{prefix}_{skip + i}" for i in range(len(g))]
             g = temporal_windows(g)
@@ -96,7 +108,7 @@ def load_fire_polygons(
             if g.empty:
                 continue
             g = g.to_crs(_ALBERS)
-            g["geometry"] = g.geometry.simplify(100).buffer(HOTSPOT_BUFFER_KM * 1000, resolution=4)
+            g["geometry"] = g.geometry.simplify(100, preserve_topology=False)
             parts.append(g[_KEEP_COLS])
     return gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), crs=_ALBERS)
 
@@ -110,7 +122,9 @@ def dedupe_matches(pairs: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def associate_hotspots(hotspots: pd.DataFrame, fires: gpd.GeoDataFrame) -> pd.DataFrame:
+def associate_hotspots(
+    hotspots: pd.DataFrame, fires: gpd.GeoDataFrame, verbose: bool = False
+) -> pd.DataFrame:
     """Match hotspots to fires, chunked by month.
 
     hotspots: harmonised schema (lat, lon, datetime_utc, frp, ...).
@@ -126,6 +140,8 @@ def associate_hotspots(hotspots: pd.DataFrame, fires: gpd.GeoDataFrame) -> pd.Da
     for m, idx in hs.groupby(month).groups.items():
         m_start, m_end = m.start_time, m.end_time
         cand = fires[(fires["window_start"] <= m_end) & (fires["window_end"] >= m_start)]
+        if verbose:
+            print(f"    {m}: {len(idx)} hotspots x {len(cand)} candidate fires", flush=True)
         if cand.empty:
             continue
         chunk = hs.loc[idx]
@@ -136,7 +152,8 @@ def associate_hotspots(hotspots: pd.DataFrame, fires: gpd.GeoDataFrame) -> pd.Da
         joined = gpd.sjoin(
             pts,
             cand[["fire_uid", "window_start", "window_end", "window_days", "area_ha", "state", "geometry"]],
-            predicate="within",
+            predicate="dwithin",
+            distance=HOTSPOT_BUFFER_KM * 1000,
             how="inner",
         )
         gated = joined[(joined["t"] >= joined["window_start"]) & (joined["t"] <= joined["window_end"])]

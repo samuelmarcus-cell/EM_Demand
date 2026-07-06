@@ -19,8 +19,16 @@ from scripts.config import DATA_DERIVED
 from scripts.fire_association import associate_hotspots, fire_daily_table, load_fire_polygons
 
 t0 = time.time()
-print("loading + buffering fire polygons ...", flush=True)
-fires = load_fire_polygons()
+poly_ckpt = DATA_DERIVED / "fire_polygons_simplified.parquet"
+if poly_ckpt.exists():
+    import geopandas as gpd
+
+    print("loading simplified polygons from checkpoint ...", flush=True)
+    fires = gpd.read_parquet(poly_ckpt)
+else:
+    print("loading + simplifying fire polygons ...", flush=True)
+    fires = load_fire_polygons(verbose=True)
+    fires.to_parquet(poly_ckpt)
 print(f"  {len(fires)} fires in hotspot era ({time.time()-t0:.0f}s)", flush=True)
 fires.drop(columns="geometry").to_parquet(DATA_DERIVED / "fire_polygons_windows.parquet")
 
@@ -31,7 +39,7 @@ hotspots = pd.read_parquet(
 print(f"  {len(hotspots)} hotspots ({time.time()-t0:.0f}s)", flush=True)
 
 print("associating (monthly chunks) ...", flush=True)
-matches = associate_hotspots(hotspots, fires)
+matches = associate_hotspots(hotspots, fires, verbose=True)
 print(f"  matched {len(matches)} / {len(hotspots)} "
       f"({100*len(matches)/len(hotspots):.1f}%) ({time.time()-t0:.0f}s)", flush=True)
 matches.to_parquet(DATA_DERIVED / "hotspot_fire_matches.parquet")
