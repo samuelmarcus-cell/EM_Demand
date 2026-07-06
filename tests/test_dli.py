@@ -49,20 +49,24 @@ def test_burn_window_daily():
 def _panels():
     dm = pd.DataFrame(
         {
-            "region": ["AUS", "AUS"],
-            "date": pd.to_datetime(["2015-01-01", "2015-01-02"]),
-            "concurrent_burden": [5, 10],
-            "ignition_load": [1, 2],
-            "growth_load": [3.0, 6.0],
-            "frp_load": [100.0, 200.0],
+            "region": ["AUS", "AUS", "SEAUS"],
+            "date": pd.to_datetime(["2015-01-01", "2015-01-02", "2015-01-01"]),
+            "concurrent_burden": [5, 10, 2],
+            "ignition_load": [1, 2, 1],
+            "growth_load": [3.0, 6.0, 1.0],
+            "frp_load": [100.0, 200.0, 50.0],
         }
     )
     bw = pd.DataFrame(
         {"date": pd.to_datetime(["1983-02-16", "2015-01-01"]), "n_windows_active": [40, 99]}
     )
-    drfa = pd.DataFrame({"date": pd.to_datetime(["2015-01-01"]), "n_active_events": [4]})
+    drfa = pd.DataFrame(
+        {"date": pd.to_datetime(["2015-01-01"]), "n_active_events": [4], "n_lga_active": [25]}
+    )
     tfb = pd.DataFrame({"date": pd.to_datetime(["1983-02-16", "2015-01-01"]), "n_districts": [9, 0]})
-    tc = pd.DataFrame({"date": pd.to_datetime(["2015-01-02"]), "n_tcs_active": [1]})
+    tc = pd.DataFrame(
+        {"date": pd.to_datetime(["2015-01-02"]), "n_tcs_active": [1], "tc_max_wind": [65.0]}
+    )
     return dm, bw, drfa, tfb, tc
 
 
@@ -73,9 +77,10 @@ def test_assemble_components_availability_masking():
     d83, d05, d15 = comp.iloc[0], comp.iloc[1], comp.iloc[2]
     # Tier 3: hotspot components NaN, windows present; DRFA pre-2006 NaN
     assert np.isnan(d83["fire_burden"]) and d83["fire_windows"] == 40
-    assert np.isnan(d83["drfa_load"]) and d83["tfb_load"] == 9
+    assert np.isnan(d83["drfa_load"]) and np.isnan(d83["drfa_lga"]) and d83["tfb_load"] == 9
+    assert np.isnan(d83["seaus_burden"])
     # Tier 2 day: hotspot metrics 0-filled (no fires = zero), windows masked
-    assert d05["fire_burden"] == 0 and np.isnan(d05["fire_windows"])
+    assert d05["fire_burden"] == 0 and d05["seaus_burden"] == 0 and np.isnan(d05["fire_windows"])
     assert np.isnan(d05["drfa_load"])  # before 2006-03-20
     # Tier 1 day: everything live
     assert d15["fire_burden"] == 5 and d15["drfa_load"] == 4 and d15["tc_load"] == 0
@@ -86,9 +91,13 @@ def test_compute_dli_counts_and_mean():
     dli = compute_dli(comp).set_index("date")
     d83 = dli.loc["1983-02-16"]
     assert d83["confidence_tier"] == 3
-    # available in 1983: fire_windows, tfb, tc — not hotspot metrics or drfa
-    assert d83["n_components_available"] == 3
+    # available in 1983: fire_windows, tfb, tc_load, tc_severity — not hotspot or drfa
+    assert d83["n_components_available"] == 4
     assert 0 <= d83["dli"] <= 1
+    # 1983: sub_drfa unavailable, other three subindices present
+    assert np.isnan(d83["sub_drfa"]) and not np.isnan(d83["sub_fire"])
     d15 = dli.loc["2015-01-02"]
-    assert d15["n_components_available"] == 7  # all but fire_windows
-    assert d15["dli"] > dli.loc["2015-01-01", "dli"] * 0  # exists and numeric
+    assert d15["n_components_available"] == 11  # all but fire_windows
+    # tc subindex is the max of load and severity percentiles
+    assert d15["sub_tc"] == max(d15["tc_load_pct"], d15["tc_severity_pct"])
+    assert 0 <= d15["dli"] <= 1

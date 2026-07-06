@@ -23,6 +23,7 @@ def _events():
             "hazard_type": ["Flood", "Bushfire"],
             "start_date": pd.to_datetime(["2022-02-22", "2021-02-01"]),
             "states": [["New South Wales", "Queensland"], ["Western Australia"]],
+            "n_lga": [62, 3],
             "hazard_classes": [{"flood"}, {"fire"}],
         }
     )
@@ -159,7 +160,9 @@ def test_daily_panel_counts():
     assert d.loc["2021-02-03", "n_jurisdictions_active"] == 1
     assert bool(d.loc["2021-02-03", "hazard_fire"]) is True
     assert bool(d.loc["2021-02-03", "hazard_flood"]) is False
+    assert d.loc["2021-02-03", "n_lga_active"] == 3
     # 2022-02-24: only event 1 (NSW+QLD flood)
+    assert d.loc["2022-02-24", "n_lga_active"] == 62
     assert d.loc["2022-02-24", "n_jurisdictions_active"] == 2
     assert d.loc["2022-02-24", "n_hazard_types_active"] == 1
     # gap day between events

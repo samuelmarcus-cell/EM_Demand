@@ -1,21 +1,38 @@
-"""Section 5: Demand Load Index v0.
+"""Section 5: Demand Load Index v0.1.
 
-DLI v0 (design decision 6): each component is percentile-ranked within its
-(confidence tier, calendar month) group — the month grouping removes
-seasonality, the tier grouping keeps satellite-era step-changes from
-contaminating ranks — then the DLI is the equal-weight mean of available
-component percentiles. Days keep `n_components_available`; nothing is
-NaN-filled silently.
+Each component is percentile-ranked within its (confidence tier, calendar
+month) group — the month grouping removes seasonality, the tier grouping
+keeps satellite-era step-changes from contaminating ranks. Components are
+then folded into hazard SUBINDICES and the DLI is the equal-weight mean of
+the available subindices:
 
-Components (daily, national):
-    fire_burden      concurrent_burden   tiers 1-2 (hotspot-based)
-    fire_ignitions   ignition_load       tiers 1-2
-    fire_growth      growth_load         tiers 1-2
-    fire_intensity   frp_load            tiers 1-2
-    fire_windows     n_windows_active    tier 3 only (polygon burn windows)
-    drfa_load        n_active_events     2006-03-20 ->
-    tfb_load         n_districts (VIC)   1945 ->
-    tc_load          n_tcs_active        full period
+    sub_fire   mean of available fire component percentiles
+    sub_tc     max(tc_load_pct, tc_severity_pct)
+    sub_drfa   drfa_lga_pct (LGA footprint = demand proxy, not event count)
+    sub_tfb    tfb_load_pct
+
+Benchmark validation drove this structure: a flat all-component mean diluted
+single-hazard events (TC Yasi, 2022 floods) with quiet fire components, and
+national fire counts swamped SE-Australia events with routine
+northern-savanna burning (hence the SEAUS components). Count-style inputs
+(n_tcs_active, n_active_events) saturate from ties — one active TC is
+common — so the tc subindex takes the max with severity, and the drfa
+subindex uses the LGA footprint. Days keep `n_components_available`;
+nothing is NaN-filled silently.
+
+Components (daily):
+    fire_burden      concurrent_burden (AUS)     tiers 1-2 (hotspot-based)
+    fire_ignitions   ignition_load (AUS)         tiers 1-2
+    fire_growth      growth_load (AUS)           tiers 1-2
+    fire_intensity   frp_load (AUS)              tiers 1-2
+    seaus_burden     concurrent_burden (SEAUS)   tiers 1-2
+    seaus_intensity  frp_load (SEAUS)            tiers 1-2
+    fire_windows     n_windows_active            tier 3 only (polygon burn windows)
+    drfa_load        n_active_events             2006-03-20 ->
+    drfa_lga         n_lga_active                2006-03-20 ->
+    tfb_load         n_districts (VIC)           1945 ->
+    tc_load          n_tcs_active                full period
+    tc_severity      tc_max_wind                 full period
 """
 
 import pandas as pd
@@ -63,18 +80,24 @@ def assemble_components(
     tier = tier_series(out.index.to_series())
 
     aus = demand_metrics[demand_metrics["region"] == "AUS"].set_index("date")
-    for comp, col in _HOTSPOT_COMPONENTS.items():
-        s = aus[col].reindex(idx)
+    seaus = demand_metrics[demand_metrics["region"] == "SEAUS"].set_index("date")
+    for comp, (src, col) in {
+        **{c: (aus, col) for c, col in _HOTSPOT_COMPONENTS.items()},
+        "seaus_burden": (seaus, "concurrent_burden"),
+        "seaus_intensity": (seaus, "frp_load"),
+    }.items():
         # hotspot era only; within it, a missing day means zero fire activity
-        s = s.fillna(0).where(tier <= 2)
-        out[comp] = s
+        out[comp] = src[col].reindex(idx).fillna(0).where(tier <= 2)
 
     out["fire_windows"] = (
         burn_windows.set_index("date")["n_windows_active"].reindex(idx).fillna(0).where(tier == 3)
     )
     out["drfa_load"] = _masked(drfa_panel, "n_active_events", idx, "drfa")
+    out["drfa_lga"] = _masked(drfa_panel, "n_lga_active", idx, "drfa")
     out["tfb_load"] = _masked(tfb_panel, "n_districts", idx, "tfb_vic")
-    out["tc_load"] = tc_panel.set_index("date")["n_tcs_active"].reindex(idx).fillna(0)
+    tc = tc_panel.set_index("date")
+    out["tc_load"] = tc["n_tcs_active"].reindex(idx).fillna(0)
+    out["tc_severity"] = tc["tc_max_wind"].reindex(idx).fillna(0)
     return out
 
 
@@ -96,6 +119,16 @@ def compute_dli(components: pd.DataFrame) -> pd.DataFrame:
     )
     out = ranks.add_suffix("_pct")
     out["n_components_available"] = ranks.notna().sum(axis=1)
-    out["dli"] = ranks.mean(axis=1, skipna=True)
+    fire_cols = list(_HOTSPOT_COMPONENTS) + ["seaus_burden", "seaus_intensity", "fire_windows"]
+    subs = pd.DataFrame(
+        {
+            "sub_fire": ranks[fire_cols].mean(axis=1, skipna=True),
+            "sub_tc": ranks[["tc_load", "tc_severity"]].max(axis=1, skipna=True),
+            "sub_drfa": ranks["drfa_lga"],
+            "sub_tfb": ranks["tfb_load"],
+        }
+    )
+    out[subs.columns] = subs
+    out["dli"] = subs.mean(axis=1, skipna=True)
     out["confidence_tier"] = tier_series(dates)
     return pd.concat([components, out], axis=1).reset_index()

@@ -1,6 +1,6 @@
 """Section 4: explode DRFA events into a daily national activation panel.
 
-Output columns per date: n_active_events, n_jurisdictions_active,
+Output columns per date: n_active_events, n_lga_active, n_jurisdictions_active,
 n_hazard_types_active, hazard flags (fire/flood/tc/storm/other),
 drfa_available.
 """
@@ -21,6 +21,7 @@ def explode_events_daily(events: pd.DataFrame) -> pd.DataFrame:
                 {
                     "date": day,
                     "agrn": ev["agrn"],
+                    "n_lga": ev["n_lga"],
                     "states": tuple(ev["states"]),
                     "hazard_classes": frozenset(ev["hazard_classes"]),
                     "end_date_source": ev["end_date_source"],
@@ -39,6 +40,7 @@ def daily_panel(events: pd.DataFrame, start=None, end=None) -> pd.DataFrame:
     grouped = ed.groupby("date")
     panel = pd.DataFrame(index=idx)
     panel["n_active_events"] = grouped["agrn"].nunique()
+    panel["n_lga_active"] = grouped["n_lga"].sum()
     panel["n_jurisdictions_active"] = grouped["states"].agg(
         lambda col: len(set().union(*col))
     )
@@ -51,6 +53,7 @@ def daily_panel(events: pd.DataFrame, start=None, end=None) -> pd.DataFrame:
         )
 
     panel["n_active_events"] = panel["n_active_events"].fillna(0).astype(int)
+    panel["n_lga_active"] = panel["n_lga_active"].fillna(0).astype(int)
     panel["n_jurisdictions_active"] = panel["n_jurisdictions_active"].fillna(0).astype(int)
     panel["n_hazard_types_active"] = panel["n_hazard_types_active"].fillna(0).astype(int)
     for c in HAZARD_FLAG_COLS:

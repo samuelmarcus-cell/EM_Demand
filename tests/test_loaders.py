@@ -83,11 +83,14 @@ def test_tc_daily_panel():
             ),
             "lat": [-17.0, -17.5, -20.0],
             "lon": [147.0, 146.0, 120.0],
+            "max_wind_spd": [60.0, 65.0, None],
         }
     )
     panel = tc_daily_panel(tracks, start="2011-01-31", end="2011-02-03").set_index("date")
     # 18:00 UTC Feb 1 = 04:00 AEST Feb 2 -> both points land on Feb 2 local
     assert bool(panel.loc["2011-01-31", "tc_active"]) is False
     assert panel.loc["2011-02-02", "n_tcs_active"] == 2
+    assert panel.loc["2011-02-02", "tc_max_wind"] == 65.0
+    assert panel.loc["2011-01-31", "tc_max_wind"] == 0.0
     assert panel.loc["2011-02-02", "tc_names"] == ["Yasi"]  # placeholders excluded
     assert panel.loc["2011-02-03", "tc_names"] == []
