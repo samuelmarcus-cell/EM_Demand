@@ -28,20 +28,23 @@ def test_compare_daily_alignment_and_overlap():
         [10.0, 20.0, 5.0],
     )
     dea = _hotspots(
-        ["2020-01-01 04:30", "2020-01-02 04:00", "2019-12-25 04:00"],
-        ["Terra MODIS", "viirs", "MODIS"],
-        [12.0, 6.0, 1.0],
+        ["2020-01-01 04:30", "2020-01-03 04:00", "2020-01-02 04:00", "2019-12-25 04:00"],
+        ["Terra MODIS", "Aqua MODIS", "viirs", "MODIS"],
+        [12.0, 2.0, 6.0, 1.0],
     )
     out = compare_daily(firms, dea).set_index(["date", "family"])
-    # overlap starts at the later series start (FIRMS 2020-01-01 local 2020-01-01)
-    assert out.index.get_level_values("date").min() == pd.Timestamp("2020-01-01")
+    # per-family overlap starts at the later series start (FIRMS MODIS local 2020-01-01)
+    modis_dates = out.xs("MODIS", level="family").index
+    assert modis_dates.min() == pd.Timestamp("2020-01-01")
     m = out.loc[(pd.Timestamp("2020-01-01"), "MODIS")]
     assert m["n_firms"] == 1 and m["n_dea"] == 1 and m["frp_sum_firms"] == 10.0
     v = out.loc[(pd.Timestamp("2020-01-02"), "VIIRS")]
     assert v["n_firms"] == 1 and v["n_dea"] == 1
-    # FIRMS-only local day still present with dea zero-filled
+    # FIRMS-only local day within the overlap still present with dea zero-filled
     m2 = out.loc[(pd.Timestamp("2020-01-02"), "MODIS")]
     assert m2["n_firms"] == 1 and m2["n_dea"] == 0
+    # per-family clipping: the DEA-only tail beyond the FIRMS MODIS end is dropped
+    assert modis_dates.max() == pd.Timestamp("2020-01-02")
 
 
 def test_agreement_stats_columns():

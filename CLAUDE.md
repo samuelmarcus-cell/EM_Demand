@@ -113,9 +113,14 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
 
 - Phase 1 complete (all 7 design sections), pushed to
   `github.com:samuelmarcus-cell/EM_Demand.git`.
-- **DEA cross-validation**: code ready; waiting on the user downloading
-  `all-data-csv.zip` (1.26 GB) into `data/raw/dea_hotspots/`. Plan:
-  `docs/superpowers/plans/2026-07-07-dea-crossvalidation.md`.
+- **DEA cross-validation: done 2026-07-07.** Daily-count Spearman vs DEA:
+  MODIS 0.92 pre-2019 (gate ≥ 0.90 passed — covers Tier 2 fully), 0.87 after;
+  VIIRS S-NPP 0.87 / 0.79. Post-2019 divergence is DEA-side: its live feed
+  ingests the same pass via multiple algorithms (~22% exact duplicates,
+  removed; counts still ~2× FIRMS after), and its S-NPP feed is partial
+  before 2019 (no FRP either). Conclusion: FIRMS is not idiosyncratic;
+  tiers 1–2 stand. Rerun: `scripts/run_crossval.py` (needs
+  `data/derived/hotspots_dea.parquet` from `scripts/run_dea_extract.py`).
 - **FFDI component (v0.2 candidate)**: precomputed daily FFDI zarr exists on
   Gadi (`GADI["ffdi_zarr"]`, 1979–2023). Plan:
   `docs/superpowers/plans/2026-07-07-ffdi-component.md`.
