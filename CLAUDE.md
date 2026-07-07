@@ -154,4 +154,9 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   verify AGCD access on Gadi (`/g/data/zv2/agcd/`, may need to join
   project zv2). Do NOT poll Gadi over ssh — the user runs Gadi commands
   and pastes output.
-- Phase 2 weather objects (Gadi), Phase 3, Phase 4: stubs only; not yet planned.
+- Phase 2 weather objects: not yet planned, but scaffolded —
+  `docs/phase2_weather_objects_notes.md` (reuse the TFB_Objects repo's
+  extraction pipeline; use coverage fractions, NOT binary presence, which
+  saturates). Phase 3 scaffolded in `docs/phase3_methods_notes.md`
+  (spatial-shuffle null + build-up composites, after Gauthier & Bevacqua
+  2026 npj Nat. Hazards). Phase 4: stub only.
