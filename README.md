@@ -46,9 +46,10 @@ Every component carries a per-tier availability flag; nothing NaN-fills silently
   Components: hotspot-derived fire activity (national + SE Aus), DRFA daily
   activations (event count + LGA footprint), TC best-track (count + max wind),
   VIC TFBs. Hazard-subindex structure validated against 12 benchmark events
-  (9/12 ≥ 93rd within-tier percentile; see `scripts/run_dli.py`). FFDI and
-  FIRMS-vs-DEA cross-validation are planned next steps
-  (`docs/superpowers/plans/`).
+  (9/12 ≥ 93rd within-tier percentile; see `scripts/run_dli.py`). **v0.2 flood
+  component (AGCD daily rainfall area fractions → sub_flood) is integrated in
+  code; adoption gate pending Gadi extraction.** FFDI and FIRMS-vs-DEA
+  cross-validation are planned next steps (`docs/superpowers/plans/`).
 - **Phase 2 (`scripts/phase2_attribution/`):** attribute demand days to SWTs
   (seasonally-matched bootstrap RR) and weather objects (regionalised presence);
   ERA5 + object composites on demand days. Data: SWT climatology, Gadi weather

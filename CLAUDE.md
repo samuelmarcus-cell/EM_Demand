@@ -77,6 +77,9 @@ hazard subindices → DLI = mean of available subindices
 - `sub_tc` = max(`tc_load_pct`, `tc_severity_pct`)
 - `sub_drfa` = `drfa_lga_pct` (LGA footprint, not event count)
 - `sub_tfb` = `tfb_load_pct`
+- `sub_flood` = mean of the six AGCD rain-fraction percentiles (1/3/7-day
+  accumulations, national and SEAUS), 1979–present, NaN outside AGCD coverage
+  (v0.2, adoption gate pending)
 
 Structure choices that were **tested and rejected**: flat component mean
 (dilutes single-hazard events like TC Yasi), top-k mean (order-statistic
@@ -110,6 +113,7 @@ other event's percentile materially.
 | (DRFA/TFB loaders) | drfa_events, drfa_daily_panel, tfb_vic_daily | seconds |
 | `run_dli.py` | demand_daily_panel, dli_top50_days.csv + benchmark table | ~5 s |
 | `run_exports.py` | CSVs in data/export/ | ~10 s |
+| `run_flood_validation.py` | flood_benchmark.csv (diagnostic; needs rebuilt panel) | ~5 s |
 | `run_crossval.py` | crossval_daily (needs DEA export, see plans) | — |
 
 Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
@@ -152,18 +156,19 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   NB the pbs must be qsub'd from the directory holding `extract_ffdi.py`
   + `ffdi_map_dates.csv` (files sit flat on Gadi, no repo). The FFDI
   summary CSV unblocks the FFDI-component plan.
-- **Flood component (v0.2 candidate, designed 2026-07-07):** AGCD daily
-  rainfall as the daily engine (national + SEAUS area fractions over
-  within-month wet-day p95, 1/3/7-day accumulations) → new `sub_flood`.
-  Spec: `docs/superpowers/specs/2026-07-07-flood-component-design.md`.
-  Plan (ready to execute): `docs/superpowers/plans/2026-07-07-flood-component.md`.
-  Adoption gate: 2022-floods benchmark must rise above ~0.83 with no fire
-  benchmark below 0.93 — never tune to pass it. Validation set = dated
-  historical flood extents (QLD 1893–2025 the standout; VIC, WA also):
-  inventory in `docs/flood_data_layers.md`. First step needs the user to
-  verify AGCD access on Gadi (`/g/data/zv2/agcd/`, may need to join
-  project zv2). Do NOT poll Gadi over ssh — the user runs Gadi commands
-  and pastes output.
+- **Flood component (v0.2, Tasks 1–5 implemented 2026-07-07):** Tasks 1–4
+  complete: Gadi job to extract AGCD daily rainfall area fractions (JSON
+  spec → agcd_rain_daily.csv), loader (`scripts/loaders/agcd_rain.py`),
+  DLI integration (`scripts/dli.py` sub_flood = mean of six rain percentiles),
+  validation runner (`scripts/run_flood_validation.py`). Task 5 (documentation,
+  this commit) now complete. **Gadi extraction job running; adoption gate
+  pending.** NEXT STEP: user fetches agcd_rain_daily.csv to `data/raw/agcd/`,
+  then run `scripts/run_dli.py` (re-ranks all components including the new
+  rain columns), re-run `scripts/run_flood_validation.py`, and apply adoption
+  gate (2022-floods benchmark must rise above ~0.83 with no fire benchmark
+  below 0.93 — never tune to pass it, keep the seven ≥95th fire events at or
+  above 93rd). Validation set = dated historical flood extents (QLD 1893–2025
+  the standout; VIC, WA also): inventory in `docs/flood_data_layers.md`.
 - Phase 2 weather objects: not yet planned, but scaffolded —
   `docs/phase2_weather_objects_notes.md` (reuse the TFB_Objects repo's
   extraction pipeline; use coverage fractions, NOT binary presence, which
