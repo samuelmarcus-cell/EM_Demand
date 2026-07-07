@@ -20,11 +20,15 @@ bench <- bench |> mutate(confidence_tier = factor(confidence_tier, levels = c(3,
 # ggrepel is NOT installed in this env; stagger y-positions within each tier
 # to avoid label overprinting (Tier 1 has 6 events in a narrow window).
 # Three y-levels per tier, assigned by event order within tier.
+# Stagger label y-positions using three levels spaced wide enough so that
+# rotated text from adjacent events (different levels) cannot collide.
+# Levels: 1.05, 1.40, 1.75.  Tier 1 has 6 events; the cycled assignment
+# ensures no two consecutive-date events share the same level.
 bench <- bench |>
   arrange(confidence_tier, date) |>
   group_by(confidence_tier) |>
   mutate(
-    label_y = c(1.05, 1.20, 1.35)[((row_number() - 1) %% 3) + 1]
+    label_y = c(1.05, 1.40, 1.75)[((row_number() - 1) %% 3) + 1]
   ) |>
   ungroup()
 
@@ -33,10 +37,10 @@ p1 <- ggplot(dli, aes(date, dli)) +
   geom_vline(data = bench, aes(xintercept = date),
              linetype = "dashed", colour = "firebrick", linewidth = 0.3) +
   geom_text(data = bench, aes(date, label_y, label = name),
-            angle = 90, size = 2.4, hjust = 0, colour = "firebrick") +
+            angle = 90, size = 2.2, hjust = 0, colour = "firebrick") +
   facet_grid(. ~ confidence_tier, scales = "free_x", space = "free_x",
              labeller = labeller(confidence_tier = tier_labels)) +
-  scale_y_continuous(limits = c(0, 1.70), breaks = seq(0, 1, 0.25)) +
+  scale_y_continuous(limits = c(0, 2.20), breaks = seq(0, 1, 0.25)) +
   coord_cartesian(clip = "off") +
   labs(x = NULL, y = "Demand Load Index",
        title = "Daily national Demand Load Index, 1979–present",
