@@ -21,6 +21,9 @@ ds = xr.open_mfdataset(f"{AGCD_DIR}/*.nc", chunks={"lat": 64}, parallel=True)
 pr = ds[VAR].sel(time=slice("1979-01-01", None))
 if pr.lat.values[0] > pr.lat.values[-1]:  # ensure ascending for slice()
     pr = pr.sortby("lat")
+# Monthly groupby-quantile requires the time axis in ONE chunk (flox only
+# supports nanquantile blockwise); lat=16 keeps each chunk ~1 GB.
+pr = pr.chunk({"time": -1, "lat": 16, "lon": -1})
 
 frames = {}
 for win in (1, 3, 7):
