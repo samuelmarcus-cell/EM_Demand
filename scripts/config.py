@@ -27,6 +27,7 @@ class Paths:
     firms_dir: Path = DATA_RAW / "firms"          # USER ACTION: FIRMS archive CSVs
     dea_hotspots_dir: Path = DATA_RAW / "dea_hotspots"
     bom_tc_dir: Path = DATA_RAW / "bom_tc"
+    agcd_rain_daily: Path = DATA_RAW / "agcd" / "agcd_rain_daily.csv"
     lga_boundaries: Path = _ONEDRIVE / "LGA_2025_AUST_GDA2020/LGA_2025_AUST_GDA2020.shp"
 
 
@@ -51,6 +52,7 @@ COMPONENT_AVAILABILITY = {
     "viirs_snpp": ("2012-01-01", None),
     "tc_besttrack": ("1979-01-01", None),
     "fire_polygons": ("1979-01-01", None),
+    "agcd_rain": ("1979-01-01", None),
 }
 
 # Phase 2 composite domain: all-Australia + Tasman (covers NZ approach).
