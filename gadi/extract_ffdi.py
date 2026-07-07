@@ -9,6 +9,8 @@ Columns: date, ffdi_mean, frac_ge50, frac_ge75, seaus_frac_ge50
     seaus_frac_ge50  fraction >= 50 within the SE Australia bbox
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -59,3 +61,17 @@ for yr in years:
 out = pd.concat(rows, ignore_index=True)
 out.to_csv(OUT, index=False, float_format="%.5f")
 print(f"wrote {len(out)} rows -> {OUT}", flush=True)
+
+# ---- map snapshots for benchmark / top-DLI days ----
+# Read date list relative to this script so it works both in the repo (gadi/)
+# and flat on Gadi (submission directory).
+_date_csv = Path(__file__).resolve().parent / "ffdi_map_dates.csv"
+map_dates = pd.read_csv(_date_csv)["date"].tolist()
+have = pd.to_datetime(da[tdim].values).normalize()
+keep = have.isin(pd.to_datetime(map_dates))
+# Select time indices first, then load — avoids pulling the full zarr into RAM.
+snap = da.sel({tdim: da[tdim].values[keep]}).load().astype("float32")
+snap = snap.rename({tdim: "date", latd: "lat", lond: "lon"}).rename("ffdi")
+MAPS_OUT = "/g/data/gb02/sm5259/EM_Demand/ffdi_maps.nc"
+snap.to_netcdf(MAPS_OUT, encoding={"ffdi": {"zlib": True, "complevel": 4}})
+print(f"wrote {int(keep.sum())} map days -> {MAPS_OUT}", flush=True)
