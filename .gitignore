@@ -10,3 +10,4 @@ data/derived/*
 !data/derived/.gitkeep
 .DS_Store
 data/export/*
+data/raw/ffdi/*
