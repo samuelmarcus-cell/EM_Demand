@@ -7,7 +7,6 @@ nationally and in the SEAUS box (lon 140-154, lat -39..-28).
 """
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import xarray as xr
 
@@ -25,9 +24,10 @@ if pr.lat.values[0] > pr.lat.values[-1]:  # ensure ascending for slice()
 
 frames = {}
 for win in (1, 3, 7):
-    acc = pr if win == 1 else pr.rolling(time=win).sum()
+    acc = pr if win == 1 else pr.rolling(time=win).sum()  # first win-1 days of 1979 are NaN by construction (window not yet filled)
     wet = acc.where(acc >= 1.0)
     thr = wet.sel(time=BASE).groupby("time.month").quantile(0.95, dim="time")
+    thr = thr.squeeze("quantile", drop=True)
     exceed = acc.groupby("time.month") >= thr
     land = pr.isel(time=0).notnull()
     exceed = exceed.where(land)
