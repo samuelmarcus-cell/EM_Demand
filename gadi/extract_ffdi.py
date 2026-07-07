@@ -34,10 +34,17 @@ lond = next(d for d in da.dims if d.lower() in ("lon", "longitude", "x"))
 print(f"var={var} dims={da.dims} shape={da.shape}", flush=True)
 da = da.transpose(tdim, latd, lond)  # BARRA-derived zarrs are often time-LAST
 
+# Load the whole array once (~40 GB, fits the 96 GB request). The zarr is
+# chunked along time, so year-by-year reads decompress the entire archive
+# ~45 times over (~8 h); a single sequential read takes minutes.
+print("loading full array into memory (~40 GB)...", flush=True)
+da = da.load()
+print("loaded", flush=True)
+
 rows = []
 years = np.unique(da[tdim].dt.year.values)
 for yr in years:
-    chunk = da.sel({tdim: str(yr)}).load()  # one year at a time, keeps memory low
+    chunk = da.sel({tdim: str(yr)})  # in-memory slice, no I/O
     land = chunk.notnull()
     mean = chunk.mean(dim=(latd, lond), skipna=True)
     ge50 = (chunk >= 50).sum(dim=(latd, lond)) / land.sum(dim=(latd, lond))
@@ -69,8 +76,7 @@ _date_csv = Path(__file__).resolve().parent / "ffdi_map_dates.csv"
 map_dates = pd.read_csv(_date_csv)["date"].tolist()
 have = pd.to_datetime(da[tdim].values).normalize()
 keep = have.isin(pd.to_datetime(map_dates))
-# Select time indices first, then load — avoids pulling the full zarr into RAM.
-snap = da.sel({tdim: da[tdim].values[keep]}).load().astype("float32")
+snap = da.sel({tdim: da[tdim].values[keep]}).astype("float32")  # already in memory
 snap = snap.rename({tdim: "date", latd: "lat", lond: "lon"}).rename("ffdi")
 MAPS_OUT = "/g/data/gb02/sm5259/EM_Demand/ffdi_maps.nc"
 snap.to_netcdf(MAPS_OUT, encoding={"ffdi": {"zlib": True, "complevel": 4}})

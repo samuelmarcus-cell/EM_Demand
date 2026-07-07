@@ -1,8 +1,8 @@
 #!/bin/bash
 #PBS -P gb02
 #PBS -q normal
-#PBS -l ncpus=4
-#PBS -l mem=32GB
+#PBS -l ncpus=8
+#PBS -l mem=96GB
 #PBS -l walltime=02:00:00
 #PBS -l storage=gdata/if69+gdata/su28+gdata/gb02+gdata/xp65+gdata/ia39+gdata/rt52
 #PBS -l wd
