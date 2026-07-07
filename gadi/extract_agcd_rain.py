@@ -5,6 +5,7 @@ of land cells whose 1/3/7-day rain accumulation exceeds the cell's
 calendar-month 95th wet-day (>=1 mm) percentile (base 1979-2023),
 nationally and in the SEAUS box (lon 140-154, lat -39..-28).
 """
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -16,9 +17,17 @@ BASE = slice("1979-01-01", "2023-12-31")
 SEAUS = {"lon": slice(140.0, 154.0), "lat": slice(-39.0, -28.0)}
 OUT = Path(__file__).resolve().parent / "agcd_rain_daily.csv"
 
+DRY = "--dry" in sys.argv  # 6-year smoke test: exercises the full dask path cheaply
+END = None
+if DRY:
+    BASE = slice("1979-01-01", "1984-12-31")
+    END = "1984-12-31"
+    OUT = OUT.with_name("agcd_rain_dry.csv")
+    print("DRY RUN: 1979-1984 only", flush=True)
+
 print("opening AGCD...", flush=True)
 ds = xr.open_mfdataset(f"{AGCD_DIR}/*.nc", chunks={"lat": 64}, parallel=True)
-pr = ds[VAR].sel(time=slice("1979-01-01", None))
+pr = ds[VAR].sel(time=slice("1979-01-01", END))
 if pr.lat.values[0] > pr.lat.values[-1]:  # ensure ascending for slice()
     pr = pr.sortby("lat")
 # Monthly groupby-quantile requires the time axis in ONE chunk (flox only
