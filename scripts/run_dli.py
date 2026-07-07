@@ -20,6 +20,7 @@ from scripts.config import DATA_DERIVED
 from scripts.dli import assemble_components, compute_dli
 from scripts.figures_data import BENCHMARKS
 from scripts.fire_association import burn_window_daily, load_polygon_windows
+from scripts.loaders.agcd_rain import load_agcd_rain
 from scripts.loaders.tc_besttrack import load_tc_tracks, tc_daily_panel
 
 t0 = time.time()
@@ -28,9 +29,10 @@ drfa = pd.read_parquet(DATA_DERIVED / "drfa_daily_panel.parquet")
 tfb = pd.read_parquet(DATA_DERIVED / "tfb_vic_daily.parquet")
 tc = tc_daily_panel(load_tc_tracks(), start="1979-01-01")
 bw = burn_window_daily(load_polygon_windows(), start="1979-01-01")
+rain = load_agcd_rain()
 print(f"inputs loaded ({time.time()-t0:.0f}s)", flush=True)
 
-components = assemble_components(dm, bw, drfa, tfb, tc)
+components = assemble_components(dm, bw, drfa, tfb, tc, rain)
 panel = compute_dli(components)
 panel.to_parquet(DATA_DERIVED / "demand_daily_panel.parquet")
 print(f"panel: {len(panel)} days {panel['date'].min().date()} -> {panel['date'].max().date()} "

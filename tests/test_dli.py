@@ -46,6 +46,12 @@ def test_burn_window_daily():
     assert d.loc["1983-02-18", "n_windows_active"] == 0
 
 
+_RAIN_COLS = [
+    "rain1d_area", "rain3d_area", "rain7d_area",
+    "seaus_rain1d", "seaus_rain3d", "seaus_rain7d",
+]
+
+
 def _panels():
     dm = pd.DataFrame(
         {
@@ -70,8 +76,24 @@ def _panels():
     return dm, bw, drfa, tfb, tc
 
 
+def _rain_panel():
+    """Minimal rain panel: two days with valid rain fractions."""
+    dates = pd.to_datetime(["2015-01-01", "2015-01-02"])
+    data = {
+        "date": dates,
+        "rain1d_area": [0.1, 0.8],
+        "rain3d_area": [0.2, 0.7],
+        "rain7d_area": [0.15, 0.6],
+        "seaus_rain1d": [0.05, 0.9],
+        "seaus_rain3d": [0.1, 0.85],
+        "seaus_rain7d": [0.12, 0.75],
+    }
+    return pd.DataFrame(data)
+
+
 def test_assemble_components_availability_masking():
-    comp = assemble_components(*_panels(), start="1983-01-01", end="2015-01-02").loc[
+    rain = _rain_panel()
+    comp = assemble_components(*_panels(), rain, start="1983-01-01", end="2015-01-02").loc[
         ["1983-02-16", "2005-01-01", "2015-01-01"]
     ]
     d83, d05, d15 = comp.iloc[0], comp.iloc[1], comp.iloc[2]
@@ -86,18 +108,62 @@ def test_assemble_components_availability_masking():
     assert d15["fire_burden"] == 5 and d15["drfa_load"] == 4 and d15["tc_load"] == 0
 
 
+def test_assemble_components_rain_columns():
+    """Rain columns are reindexed without fillna; days outside CSV are NaN."""
+    rain = _rain_panel()
+    comp = assemble_components(*_panels(), rain, start="1983-01-01", end="2015-01-02")
+    # 2015-01-01 has rain data — values must match
+    assert comp.loc["2015-01-01", "rain1d_area"] == pytest_approx(0.1)
+    assert comp.loc["2015-01-01", "seaus_rain7d"] == pytest_approx(0.12)
+    # 2015-01-02 has rain data
+    assert comp.loc["2015-01-02", "rain1d_area"] == pytest_approx(0.8)
+    # 1983-02-16 is outside the CSV coverage — must be NaN (no fillna)
+    for c in _RAIN_COLS:
+        assert np.isnan(comp.loc["1983-02-16", c]), f"Expected NaN for {c} on 1983-02-16"
+
+
 def test_compute_dli_counts_and_mean():
-    comp = assemble_components(*_panels(), start="1983-01-01", end="2015-01-02")
+    rain = _rain_panel()
+    comp = assemble_components(*_panels(), rain, start="1983-01-01", end="2015-01-02")
     dli = compute_dli(comp).set_index("date")
     d83 = dli.loc["1983-02-16"]
     assert d83["confidence_tier"] == 3
-    # available in 1983: fire_windows, tfb, tc_load, tc_severity — not hotspot or drfa
+    # available in 1983: fire_windows, tfb, tc_load, tc_severity — not hotspot or drfa or rain
     assert d83["n_components_available"] == 4
     assert 0 <= d83["dli"] <= 1
-    # 1983: sub_drfa unavailable, other three subindices present
+    # 1983: sub_drfa unavailable, sub_flood unavailable (no rain data), other three present
     assert np.isnan(d83["sub_drfa"]) and not np.isnan(d83["sub_fire"])
+    assert np.isnan(d83["sub_flood"])
     d15 = dli.loc["2015-01-02"]
-    assert d15["n_components_available"] == 11  # all but fire_windows
+    assert d15["n_components_available"] == 17  # 11 non-rain + 6 rain cols
     # tc subindex is the max of load and severity percentiles
     assert d15["sub_tc"] == max(d15["tc_load_pct"], d15["tc_severity_pct"])
     assert 0 <= d15["dli"] <= 1
+    # sub_flood is the mean of the six rain rank columns
+    assert not np.isnan(d15["sub_flood"])
+    expected_flood = np.mean([d15[f"{c}_pct"] for c in _RAIN_COLS])
+    assert d15["sub_flood"] == pytest_approx(expected_flood)
+
+
+def test_sub_flood_nan_when_all_rain_nan():
+    """sub_flood must be NaN when all six rain columns are NaN (pre-CSV coverage)."""
+    rain = _rain_panel()
+    comp = assemble_components(*_panels(), rain, start="1983-01-01", end="2015-01-02")
+    dli = compute_dli(comp).set_index("date")
+    # 1983-02-16: no rain coverage → all rain ranks NaN → sub_flood NaN
+    d83 = dli.loc["1983-02-16"]
+    assert np.isnan(d83["sub_flood"]), "sub_flood must be NaN when all rain columns are NaN"
+    # DLI on that day should still be valid (from other 3 subindices)
+    assert not np.isnan(d83["dli"])
+
+
+def test_dli_includes_sub_flood_in_mean():
+    """dli averages five subindices where available; sub_flood included on rainy days."""
+    rain = _rain_panel()
+    comp = assemble_components(*_panels(), rain, start="2015-01-01", end="2015-01-02")
+    dli = compute_dli(comp).set_index("date")
+    d15 = dli.loc["2015-01-02"]
+    # All five subindices available; dli = mean of sub_fire, sub_tc, sub_drfa, sub_tfb, sub_flood
+    sub_cols = ["sub_fire", "sub_tc", "sub_drfa", "sub_tfb", "sub_flood"]
+    sub_vals = [d15[c] for c in sub_cols if not np.isnan(d15[c])]
+    assert d15["dli"] == pytest_approx(np.mean(sub_vals))

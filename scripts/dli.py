@@ -1,4 +1,4 @@
-"""Section 5: Demand Load Index v0.1.
+"""Section 5: Demand Load Index v0.2.
 
 Each component is percentile-ranked within its (confidence tier, calendar
 month) group — the month grouping removes seasonality, the tier grouping
@@ -10,6 +10,7 @@ the available subindices:
     sub_tc     max(tc_load_pct, tc_severity_pct)
     sub_drfa   drfa_lga_pct (LGA footprint = demand proxy, not event count)
     sub_tfb    tfb_load_pct
+    sub_flood  mean of six AGCD rain-fraction percentiles (1979-present)
 
 Benchmark validation drove this structure: a flat all-component mean diluted
 single-hazard events (TC Yasi, 2022 floods) with quiet fire components, and
@@ -33,6 +34,12 @@ Components (daily):
     tfb_load         n_districts (VIC)           1945 ->
     tc_load          n_tcs_active                full period
     tc_severity      tc_max_wind                 full period
+    rain1d_area      AGCD AUS area frac > p95    1979 -> (AGCD CSV arrival)
+    rain3d_area      AGCD AUS 3-day area frac    1979 ->
+    rain7d_area      AGCD AUS 7-day area frac    1979 ->
+    seaus_rain1d     AGCD SEAUS area frac > p95  1979 ->
+    seaus_rain3d     AGCD SEAUS 3-day area frac  1979 ->
+    seaus_rain7d     AGCD SEAUS 7-day area frac  1979 ->
 """
 
 import pandas as pd
@@ -62,12 +69,19 @@ def monthly_tier_percentile(values: pd.Series, dates: pd.Series) -> pd.Series:
     return values.groupby([tier, month]).rank(pct=True)
 
 
+_RAIN_COLS = [
+    "rain1d_area", "rain3d_area", "rain7d_area",
+    "seaus_rain1d", "seaus_rain3d", "seaus_rain7d",
+]
+
+
 def assemble_components(
     demand_metrics: pd.DataFrame,
     burn_windows: pd.DataFrame,
     drfa_panel: pd.DataFrame,
     tfb_panel: pd.DataFrame,
     tc_panel: pd.DataFrame,
+    rain_panel: pd.DataFrame,
     start="1979-01-01",
     end=None,
 ) -> pd.DataFrame:
@@ -98,6 +112,12 @@ def assemble_components(
     tc = tc_panel.set_index("date")
     out["tc_load"] = tc["n_tcs_active"].reindex(idx).fillna(0)
     out["tc_severity"] = tc["tc_max_wind"].reindex(idx).fillna(0)
+
+    # Rain columns: reindex only — no fillna (NaN outside CSV coverage is correct).
+    rain = rain_panel.set_index("date")
+    for c in _RAIN_COLS:
+        out[c] = rain[c].reindex(idx)
+
     return out
 
 
@@ -120,14 +140,19 @@ def compute_dli(components: pd.DataFrame) -> pd.DataFrame:
     out = ranks.add_suffix("_pct")
     out["n_components_available"] = ranks.notna().sum(axis=1)
     fire_cols = list(_HOTSPOT_COMPONENTS) + ["seaus_burden", "seaus_intensity", "fire_windows"]
+    rain_cols = _RAIN_COLS
     subs = pd.DataFrame(
         {
             "sub_fire": ranks[fire_cols].mean(axis=1, skipna=True),
             "sub_tc": ranks[["tc_load", "tc_severity"]].max(axis=1, skipna=True),
             "sub_drfa": ranks["drfa_lga"],
             "sub_tfb": ranks["tfb_load"],
+            "sub_flood": ranks[rain_cols].mean(axis=1, skipna=True),
         }
     )
+    # sub_flood must be NaN when all rain ranks are NaN (skipna=True with all-NaN row = NaN).
+    all_rain_nan = ranks[rain_cols].isna().all(axis=1)
+    subs.loc[all_rain_nan, "sub_flood"] = float("nan")
     out[subs.columns] = subs
     out["dli"] = subs.mean(axis=1, skipna=True)
     out["confidence_tier"] = tier_series(dates)
