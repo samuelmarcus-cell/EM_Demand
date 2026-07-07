@@ -27,6 +27,7 @@ class Paths:
     firms_dir: Path = DATA_RAW / "firms"          # USER ACTION: FIRMS archive CSVs
     dea_hotspots_dir: Path = DATA_RAW / "dea_hotspots"
     bom_tc_dir: Path = DATA_RAW / "bom_tc"
+    lga_boundaries: Path = _ONEDRIVE / "LGA_2025_AUST_GDA2020/LGA_2025_AUST_GDA2020.shp"
 
 
 PATHS = Paths()
