@@ -113,7 +113,7 @@ other event's percentile materially.
 | (DRFA/TFB loaders) | drfa_events, drfa_daily_panel, tfb_vic_daily | seconds |
 | `run_dli.py` | demand_daily_panel, dli_top50_days.csv + benchmark table | ~5 s |
 | `run_exports.py` | CSVs in data/export/ | ~10 s |
-| `run_flood_validation.py` | flood_benchmark.csv (diagnostic; needs rebuilt panel) | ~5 s |
+| `run_flood_validation.py` | prints diagnostic table only, no file (needs rebuilt panel) | ~5 s |
 | `run_crossval.py` | crossval_daily (needs DEA export, see plans) | — |
 
 Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
