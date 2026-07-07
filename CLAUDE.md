@@ -137,11 +137,15 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   fig_dli_timeseries.png (numbered benchmark events + 90-day rolling mean),
   fig_hotspot_maps.png (7 landmark days), fig_drfa_choropleth.png (LGA 2025
   boundaries via `PATHS.lga_boundaries`, 100% name join after 2 ABS renames).
-  Pending: FFDI danger-footprint maps (`R/ffdi_maps.R`, plan Task 3 steps 4–5)
-  blocked on Gadi job output `ffdi_maps.nc` + `ffdi_daily_summary.csv`
-  (scp both to `data/raw/ffdi/`); then README "Figures" section + final review.
-  NB `gadi/extract_ffdi.pbs` must be qsub'd from the directory holding
-  `extract_ffdi.py` + `ffdi_map_dates.csv` (files sit flat on Gadi, no repo).
+  Done 2026-07-07 (later same day): fig_ffdi_maps.png (10 fire benchmark
+  days; TC/flood days excluded — FFDI is fire danger, low on those days)
+  + README "Figures" section. `ffdi_daily_summary.csv` + `ffdi_maps.nc`
+  are in `data/raw/ffdi/` (gitignored; regenerate via
+  `gadi/extract_ffdi.pbs` — loads the full 40 GB zarr into RAM in one
+  pass, 8 CPUs/96 GB, ~10 min; year-by-year reads take 8 h, don't).
+  NB the pbs must be qsub'd from the directory holding `extract_ffdi.py`
+  + `ffdi_map_dates.csv` (files sit flat on Gadi, no repo). The FFDI
+  summary CSV unblocks the FFDI-component plan.
 - **Flood component (v0.2 candidate, designed 2026-07-07):** AGCD daily
   rainfall as the daily engine (national + SEAUS area fractions over
   within-month wet-day p95, 1/3/7-day accumulations) → new `sub_flood`.
