@@ -132,4 +132,14 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   EH-A 0.39, WCT-B/WH-B 0.52. Contrast with Fires_SWTs *danger* result
   (FH-B 2.13 top): demand is multi-hazard, so monsoon-family (AM) types
   outrank the fire blocking highs. FH-B itself is NOT demand-enriched (0.69).
+- **Figures (2026-07-07, in progress):** plan
+  `docs/superpowers/plans/2026-07-07-figures.md`. Done: `R/figs/`
+  fig_dli_timeseries.png (numbered benchmark events + 90-day rolling mean),
+  fig_hotspot_maps.png (7 landmark days), fig_drfa_choropleth.png (LGA 2025
+  boundaries via `PATHS.lga_boundaries`, 100% name join after 2 ABS renames).
+  Pending: FFDI danger-footprint maps (`R/ffdi_maps.R`, plan Task 3 steps 4–5)
+  blocked on Gadi job output `ffdi_maps.nc` + `ffdi_daily_summary.csv`
+  (scp both to `data/raw/ffdi/`); then README "Figures" section + final review.
+  NB `gadi/extract_ffdi.pbs` must be qsub'd from the directory holding
+  `extract_ffdi.py` + `ffdi_map_dates.csv` (files sit flat on Gadi, no repo).
 - Phase 2 weather objects (Gadi), Phase 3, Phase 4: stubs only; not yet planned.
