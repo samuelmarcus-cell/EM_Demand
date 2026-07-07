@@ -18,6 +18,18 @@ Demand Load Index from 1979 to the present. The full predecessor analysis —
 code, baked notebook, and figures — is included in this repository under
 [`fires_swts/`](../fires_swts/README.md).
 
+**How far Fires_SWTs can be trusted (audited 2026-07-07).** An independent
+audit ([`fires_swts/AUDIT_2026-07-07.md`](../fires_swts/AUDIT_2026-07-07.md))
+recomputed every headline number from scratch and found no errors. Its
+verdicts: the danger-synchronisation results and the danger→fire conversion
+null are SOLID and citable; the realized-fire RRs are FRAGILE (they depend on
+a burn-window imputation and must be cited with the ignition-only
+sensitivity); and a landmark-day spot-check found that Black Saturday and
+4 Jan 2020 — archetypal hot-northerly fire days — are classified as "active
+monsoon" (AM) types, which casts doubt on AM-family results everywhere
+(see §7.5). This project therefore leans on the danger result and the
+conversion null, not on the fire RRs or the AM labels.
+
 ## 2. Data sources
 
 | Source | What it contributes | Period |
@@ -28,6 +40,7 @@ code, baked notebook, and figures — is included in this repository under
 | BoM tropical cyclone best-track | TC positions and intensities near Australia | full period |
 | Victorian Total Fire Ban declarations | An operational decision record (how many fire districts under a ban) | 1945– |
 | DEA Hotspots (Geoscience Australia) | An independent hotspot archive, used only to cross-validate FIRMS | 2002– |
+| AGCD v1 daily rainfall (0.05°, Gadi) | Gridded rain — the basis of the flood subindex (v0.2, adoption gate pending) | 1900– (used 1979–) |
 | SWT climatology (Barnes) | One synoptic weather type per day, 30 types in 8 regime families | 1952– |
 
 **Design principle — availability discipline:** every component is explicitly
@@ -110,7 +123,7 @@ satellite-era step-changes from contaminating the ranks.
 
 ### 5.2 Hazard subindices — the structure that survived testing
 
-Percentiles are folded into four hazard subindices, and the DLI is the
+Percentiles are folded into hazard subindices, and the DLI is the
 equal-weight mean of whichever subindices are available that day:
 
 - `sub_fire` — mean of the seven fire percentiles (four national, two SEAUS,
@@ -119,7 +132,17 @@ equal-weight mean of whichever subindices are available that day:
   (maximum wind) percentile;
 - `sub_drfa` — the DRFA percentile based on the **LGA footprint** (how many
   local government areas are under activation), not the event count;
-- `sub_tfb` — the Victorian Total Fire Ban percentile.
+- `sub_tfb` — the Victorian Total Fire Ban percentile;
+- `sub_flood` *(v0.2, adoption gate pending)* — mean of six rainfall
+  percentiles: the fraction of land area whose 1-, 3- and 7-day rain
+  accumulation exceeds its local per-month wet-day 95th percentile,
+  computed nationally and for the SEAUS box from AGCD gridded rainfall.
+  Area fractions rather than rain amounts, because flood *demand* scales
+  with how much of the country is being rained on hard, not with the
+  single wettest gauge. The component is fully coded and tested; it enters
+  the released index only if it lifts the 2022-floods benchmark (82.6th)
+  without degrading any fire benchmark below the 93rd — this gate has not
+  yet been run (awaiting the Gadi extraction).
 
 Two failure modes drove these choices, both variants were tested and
 rejected:
@@ -258,6 +281,23 @@ types that drive national emergency workload are not the fire blocking
 highs; the AM family dominates instead. The two analyses answer different
 questions, and that difference is itself the finding.
 
+### 7.5 Caveat: the AM labels are under suspicion
+
+The 2026-07-07 audit of Fires_SWTs
+([`fires_swts/AUDIT_2026-07-07.md`](../fires_swts/AUDIT_2026-07-07.md))
+spot-checked landmark days against their assigned weather types and found
+that **Black Saturday (7 Feb 2009) and 4 Jan 2020 — both textbook
+hot-northerly southern fire catastrophes — are classified AM-E and AM-B**
+("active monsoon"). Either the AM family names are misleading shorthand for
+broader circulation clusters, or the classifier confuses tropical northerly
+surges with mid-latitude hot northerlies. Either way, the AM-E demand
+enrichment above may partly consist of misfiled southern fire-catastrophe
+days rather than genuine monsoon-driven demand. Until the SWT classifier is
+audited separately, the AM results should be reported with this caveat
+attached — which is one reason the project is moving to **pattern-agnostic
+meteorology** (composite maps of the actual fields on high-demand days)
+rather than relying on the pre-baked type labels.
+
 ## 8. Reproducibility
 
 The full pipeline is deterministic and scripted (`scripts/run_*.py`, run
@@ -269,15 +309,37 @@ regenerable from raw inputs).
 
 ## 9. Current limitations
 
-- **Flood signal is thin.** DRFA activations are the only flood-sensitive
-  component and they persist for weeks; flood peaks are under-sharp
-  (see the 2022 benchmark miss).
+- **Flood signal is thin (being addressed).** DRFA activations were the only
+  flood-sensitive component and they persist for weeks; flood peaks are
+  under-sharp (see the 2022 benchmark miss). The AGCD rainfall subindex
+  (§5.2) is the fix — coded and tested, adoption gate pending.
 - **Demand is proxied, not measured.** No national record of actual resource
   deployment exists at daily resolution back to 1979; the components are the
   best available traces of workload.
 - **Tier 3 is coarse.** Pre-2000 fire activity rests on mapped polygons and
-  estimated burn windows; a fire-danger (FFDI) component to strengthen this
-  era is planned (`docs/superpowers/plans/2026-07-07-ffdi-component.md`).
+  estimated burn windows.
 - **The 12-event benchmark is a validation, not a proof.** It demonstrates
   the index responds to known extremes; it cannot certify behaviour on
   unremarkable days.
+- **The SWT attribution inherits an unaudited classifier** (§7.5).
+
+## 10. Project direction (decided 2026-07-07)
+
+The index is a **tool, not the point** — the research object is the
+underlying synoptic meteorology of severe hazards that spatially compound
+in their demand on nationwide EM resources. Decisions:
+
+1. **The DLI recipe is frozen.** Close the flood adoption gate when the
+   Gadi extraction lands; after that, no new components. The planned FFDI
+   component is parked indefinitely.
+2. **Pattern-agnostic meteorology next.** A pilot study composites the
+   actual ERA5 fields (MSLP, 850 hPa temperature and wind, column water
+   vapour) on high-demand days, stratified by dominant hazard — maps of
+   what the atmosphere is doing, with no reliance on the pre-baked SWT
+   labels (§7.5).
+3. **Then a state×hazard compounding panel** — which states are under
+   which hazard load on the same day — as the substrate for the real
+   compound-demand analysis, which will also bring in the weather-object
+   pipeline (`docs/phase2_weather_objects_notes.md`).
+4. **Fires_SWTs is demoted from foundation to audited input** (§1); its
+   SWT classifier still needs its own audit.

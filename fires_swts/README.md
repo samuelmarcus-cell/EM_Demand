@@ -20,6 +20,19 @@ The headline findings of Fires_SWTs motivated the EM_Demand reframe:
 Hence EM_Demand's reframe: the outcome variable becomes **emergency resource
 demand** (which meteorology plausibly does control) rather than fire occurrence.
 
+## Independent audit (2026-07-07)
+
+The analysis was audited by an independent agent (read-only; all headline
+results recomputed from scratch): see [`AUDIT_2026-07-07.md`](AUDIT_2026-07-07.md).
+Bottom line: every headline number reproduces exactly; the **danger** results
+and the danger→fire conversion null are SOLID; the realized-fire RRs are
+numerically correct but FRAGILE to the burn-window imputation (cite them only
+with the ignition-only sensitivity attached); and two archetypal hot-northerly
+fire catastrophes (Black Saturday 2009, 4 Jan 2020) classify as "active
+monsoon" (AM) types — so AM-family results in downstream analyses, including
+EM_Demand's Phase 2 AM-E demand enrichment, should be treated with caution
+until the SWT classifier itself is audited.
+
 ## Contents
 
 - `Fires_SWTs.ipynb` — the full baked analysis, Steps 1–10 (outputs preserved).

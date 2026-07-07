@@ -17,10 +17,10 @@ PhD project — Samuel Marcus, Monash University / ARC 21st Century Weather CRC.
 
 ## Headline results so far
 
-- **DLI validated against 12 benchmark events:** 9/12 score ≥ 93rd
+- **DLI validated against 12 benchmark events:** 7/12 score ≥ 95th
   within-tier percentile (Black Saturday 99.9th, Ash Wednesday 99.7th,
-  Canberra 2003 99.6th). The misses are understood and documented, not
-  tuned away.
+  Canberra 2003 99.6th); TC Yasi 92.9th and Blue Mountains 2013 89.6th are
+  near-misses. The misses are understood and documented, not tuned away.
 - **Fire record cross-validated:** FIRMS vs the independent DEA Hotspots
   archive agrees at Spearman 0.92 (daily MODIS counts, 2002–2018), passing
   the ≥ 0.90 gate that covers Tier 2 end-to-end.
@@ -29,6 +29,8 @@ PhD project — Samuel Marcus, Monash University / ARC 21st Century Weather CRC.
   the modern era. The fire-danger champion FH-B (danger RR 2.13 in
   Fires_SWTs) shows **no** demand enrichment — demand is multi-hazard, and
   the weather types that drive it are not the fire blocking highs.
+  *Caveat:* an independent audit (`fires_swts/AUDIT_2026-07-07.md`) found
+  the AM type labels suspect — see `docs/METHODOLOGY.md` §7.5.
 
 ## Confidence tiers
 
@@ -46,14 +48,19 @@ Every component carries a per-tier availability flag; nothing NaN-fills silently
   Components: hotspot-derived fire activity (national + SE Aus), DRFA daily
   activations (event count + LGA footprint), TC best-track (count + max wind),
   VIC TFBs. Hazard-subindex structure validated against 12 benchmark events
-  (9/12 ≥ 93rd within-tier percentile; see `scripts/run_dli.py`). **v0.2 flood
-  component (AGCD daily rainfall area fractions → sub_flood) is integrated in
-  code; adoption gate pending Gadi extraction.** FFDI and FIRMS-vs-DEA
-  cross-validation are planned next steps (`docs/superpowers/plans/`).
-- **Phase 2 (`scripts/phase2_attribution/`):** attribute demand days to SWTs
-  (seasonally-matched bootstrap RR) and weather objects (regionalised presence);
-  ERA5 + object composites on demand days. Data: SWT climatology, Gadi weather
-  objects, ERA5.
+  (7/12 ≥ 95th within-tier percentile; see `scripts/run_dli.py`). FIRMS-vs-DEA
+  cross-validation done (Spearman 0.92 gate passed). **v0.2 flood component
+  (AGCD daily rainfall area fractions → sub_flood) is integrated in code;
+  adoption gate pending Gadi extraction.** After that gate, **the DLI recipe
+  is frozen** (2026-07-07 decision; the planned FFDI component is parked) —
+  the index is a tool, the research object is the synoptic meteorology of
+  spatially compounding demand (`docs/METHODOLOGY.md` §10).
+- **Phase 2:** SWT attribution done (`scripts/run_phase2_swt.py`; AM caveat
+  above). **Current focus: pilot ERA5 composite maps** of high-demand days
+  stratified by dominant hazard — pattern-agnostic meteorology that does not
+  depend on the SWT labels. Weather objects
+  (`docs/phase2_weather_objects_notes.md`) follow in the full compound-day
+  analysis.
 - **Phase 3 (`scripts/phase3_compounding/`):** multi-hazard co-occurrence matrix
   (fire × flood × TC × heatwave at 0/±7/±30-day lags); hemispheric overlap with
   NIFC/CIFFC northern-hemisphere demand. Data: demand panel, NIFC preparedness

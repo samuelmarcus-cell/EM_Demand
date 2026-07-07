@@ -121,6 +121,20 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
 
 ## Current status / open items
 
+- **Strategic pivot (2026-07-07, user decision):** the index is a tool, not
+  the point — the research object is the synoptic meteorology of spatially
+  compounding hazard demand. DLI recipe is **frozen** after the flood gate
+  closes; the FFDI component is **parked** (plan kept for reference only).
+  Priorities: (1) close flood gate, (2) pilot ERA5 composite maps of
+  high-demand days stratified by dominant hazard (approved design, spec in
+  progress), (3) state×hazard compounding panel, (4) weather objects in the
+  real compound-day analysis. See `docs/METHODOLOGY.md` §10.
+- **Fires_SWTs audited 2026-07-07** (`fires_swts/AUDIT_2026-07-07.md`, also
+  at `~/Fires_SWTs/`): all numbers reproduce; danger RRs + conversion null
+  SOLID (citable); fire RRs FRAGILE (burn-window imputation — cite only with
+  ignition-only sensitivity); **red flag: Black Saturday + 2020-01-04
+  classify as AM** → treat AM-family results (incl. our AM-E 1.52) with
+  caution; SWT classifier needs its own audit. See METHODOLOGY.md §7.5.
 - Phase 1 complete (all 7 design sections), pushed to
   `github.com:samuelmarcus-cell/EM_Demand.git`.
 - **DEA cross-validation: done 2026-07-07.** Daily-count Spearman vs DEA:
@@ -131,9 +145,9 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   before 2019 (no FRP either). Conclusion: FIRMS is not idiosyncratic;
   tiers 1–2 stand. Rerun: `scripts/run_crossval.py` (needs
   `data/derived/hotspots_dea.parquet` from `scripts/run_dea_extract.py`).
-- **FFDI component (v0.2 candidate)**: precomputed daily FFDI zarr exists on
-  Gadi (`GADI["ffdi_zarr"]`, 1979–2023). Plan:
-  `docs/superpowers/plans/2026-07-07-ffdi-component.md`.
+- **FFDI component: PARKED** (pivot decision — index frozen). The plan
+  (`docs/superpowers/plans/2026-07-07-ffdi-component.md`) and the extracted
+  `ffdi_daily_summary.csv` are kept for reference; do not implement.
 - **Phase 2 SWT attribution: done 2026-07-07** (`scripts/run_phase2_swt.py`
   → `data/derived/swt_demand_rr*.csv`; month-matched RR of within-tier
   ≥95th-pct DLI days, 30-day block bootstrap). Headline: AM-E RR 1.52
@@ -142,6 +156,8 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   EH-A 0.39, WCT-B/WH-B 0.52. Contrast with Fires_SWTs *danger* result
   (FH-B 2.13 top): demand is multi-hazard, so monsoon-family (AM) types
   outrank the fire blocking highs. FH-B itself is NOT demand-enriched (0.69).
+  **Audit caveat:** AM labels are suspect (Black Saturday classifies AM-E) —
+  report AM results only with the METHODOLOGY.md §7.5 caveat attached.
 - **Figures (2026-07-07, in progress):** plan
   `docs/superpowers/plans/2026-07-07-figures.md`. Done: `R/figs/`
   fig_dli_timeseries.png (numbered benchmark events + 90-day rolling mean),
