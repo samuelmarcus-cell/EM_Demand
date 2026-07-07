@@ -37,6 +37,8 @@ ncdump -h /g/data/zv2/agcd/v1/precip/total/r005/01day/$(ls /g/data/zv2/agcd/v1/p
 
 Expected: annual files `agcd_v1_precip_total_r005_daily_YYYY.nc`, variable `precip`, dims `time,lat,lon`. If `zv2` is not readable, the user must join project zv2 on my.nci.org.au (data collection, auto-approved). Adjust `AGCD_DIR`/`VAR` below to whatever the paste shows, and add `gdata/zv2` to the PBS storage flags and to `GADI["storage_flags"]` in `scripts/config.py`.
 
+**VERIFIED 2026-07-07 (user paste):** files 1900–present, variable `precip` with dims `(time, lat, lon)`, grid 691×886 (identical to the FFDI zarr), lat ascending −44.5..−10.0, lon 112.0..156.2. **Timestamps are 09:00** (AGCD rain days run 9am-to-9am, stamped on the day of the 9am reading) — the script below must normalize the time index to plain dates before writing the CSV.
+
 - [ ] **Step 2: Write `gadi/extract_agcd_rain.py`**
 
 ```python
@@ -81,6 +83,7 @@ for win in (1, 3, 7):
 
 import pandas as pd
 out = pd.DataFrame(frames)
+out.index = pd.to_datetime(out.index).normalize()  # AGCD stamps are 09:00 (9am-to-9am rain day)
 out.index.name = "date"
 out = out.rename(columns={"rain3d_area_seaus": "seaus_rain3d"})
 out.to_csv(OUT, float_format="%.6f")
