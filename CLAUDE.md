@@ -142,4 +142,16 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   (scp both to `data/raw/ffdi/`); then README "Figures" section + final review.
   NB `gadi/extract_ffdi.pbs` must be qsub'd from the directory holding
   `extract_ffdi.py` + `ffdi_map_dates.csv` (files sit flat on Gadi, no repo).
+- **Flood component (v0.2 candidate, designed 2026-07-07):** AGCD daily
+  rainfall as the daily engine (national + SEAUS area fractions over
+  within-month wet-day p95, 1/3/7-day accumulations) → new `sub_flood`.
+  Spec: `docs/superpowers/specs/2026-07-07-flood-component-design.md`.
+  Plan (ready to execute): `docs/superpowers/plans/2026-07-07-flood-component.md`.
+  Adoption gate: 2022-floods benchmark must rise above ~0.83 with no fire
+  benchmark below 0.93 — never tune to pass it. Validation set = dated
+  historical flood extents (QLD 1893–2025 the standout; VIC, WA also):
+  inventory in `docs/flood_data_layers.md`. First step needs the user to
+  verify AGCD access on Gadi (`/g/data/zv2/agcd/`, may need to join
+  project zv2). Do NOT poll Gadi over ssh — the user runs Gadi commands
+  and pastes output.
 - Phase 2 weather objects (Gadi), Phase 3, Phase 4: stubs only; not yet planned.
