@@ -20,7 +20,7 @@ p <- ggplot(lga) +
     title = "Disaster-funding activations per Local Government Area, 2006–present",
     subtitle = paste0(
       "Count of DRFA event-activations; grey = never activated. ",
-      "LGA 2025 boundaries (GDA2020); 100% of 522 DRFA LGAs matched."
+      "LGA 2025 boundaries (GDA2020); 100% of 522 DRFA LGAs matched (2 ABS-2025 renames applied)."
     )
   ) +
   theme_minimal(base_size = 9) +

@@ -3,7 +3,6 @@
 Run: /opt/anaconda3/bin/python3 scripts/export_drfa_map.py
 """
 
-import re
 import sys
 from pathlib import Path
 
