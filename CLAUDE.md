@@ -42,6 +42,12 @@ work in small validated steps, and commit + push after each validated step.
 
 ## Hard-won environment traps (violating these costs hours)
 
+- **Gadi scripts MUST get a small dry run before the full qsub** (e.g. 2
+  years of input, ~1 SU): local unit tests use in-memory arrays and cannot
+  hit dask/chunking failures — job 173287012 died on a groupby-quantile
+  chunking error that no local test could catch. Dask groupby `.quantile`
+  needs the time axis in ONE chunk (flox blockwise only).
+
 - **Fire polygon gdb** (`~/Fires_SWTs/Bushfire Extents - Historical (2025).gdb`):
   - Set `pyogrio.set_gdal_config_options({"OGR_ORGANIZE_POLYGONS": "SKIP"})`
     before reading geometry — GDAL's organizePolygons is O(parts²) and stalls

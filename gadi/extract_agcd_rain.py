@@ -35,16 +35,17 @@ for win in (1, 3, 7):
     land = pr.isel(time=0).notnull()
     exceed = exceed.where(land)
 
-    # National rain area fraction
-    frac_national = exceed.mean(dim=("lat", "lon"), skipna=True)
-    print(f"computing rain{win}d_area...", flush=True)
-    frames[f"rain{win}d_area"] = frac_national.compute().to_series()
-
-    # SEAUS rain area fraction
-    exceed_seaus = exceed.sel(**SEAUS)
-    frac_seaus = exceed_seaus.mean(dim=("lat", "lon"), skipna=True)
-    print(f"computing seaus_rain{win}d...", flush=True)
-    frames[f"seaus_rain{win}d"] = frac_seaus.compute().to_series()
+    # National + SEAUS area fractions in ONE compute (one archive read)
+    both = xr.Dataset(
+        {
+            f"rain{win}d_area": exceed.mean(dim=("lat", "lon"), skipna=True),
+            f"seaus_rain{win}d": exceed.sel(**SEAUS).mean(dim=("lat", "lon"), skipna=True),
+        }
+    )
+    print(f"computing rain{win}d (national + seaus)...", flush=True)
+    both = both.compute()
+    frames[f"rain{win}d_area"] = both[f"rain{win}d_area"].to_series()
+    frames[f"seaus_rain{win}d"] = both[f"seaus_rain{win}d"].to_series()
 
 out = pd.DataFrame(frames)
 out.index = pd.to_datetime(out.index).normalize()  # AGCD stamps are 09:00 (9am-to-9am rain day)
