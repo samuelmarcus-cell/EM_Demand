@@ -61,6 +61,22 @@ Every component carries a per-tier availability flag; nothing NaN-fills silently
   (local → intrastate → interstate → international → ADF), "no donor available"
   day detection, storyline stress tests. Params stakeholder-elicited.
 
+## Figures
+
+Committed PNGs in `R/figs/` (each rendered by the matching `R/*.R` script via
+the `rfigs` conda env; input CSVs come from `scripts/run_figures_data.py` and
+`scripts/export_drfa_map.py`):
+
+- `fig_dli_timeseries.png` — daily DLI 1979–2023 by confidence tier, numbered
+  benchmark events, 90-day rolling mean (`R/figures_dli.R`)
+- `fig_hotspot_maps.png` — satellite hotspots on 7 landmark demand days
+  (`R/figures_dli.R`)
+- `fig_drfa_choropleth.png` — DRFA activation counts by LGA, 2025 boundaries
+  (`R/drfa_map.R`)
+- `fig_ffdi_maps.png` — FFDI danger footprint on the 10 fire benchmark days;
+  TC/flood days excluded since FFDI is fire danger (`R/ffdi_maps.R`; needs
+  `data/raw/ffdi/ffdi_maps.nc` from `gadi/extract_ffdi.pbs`)
+
 ## Layout
 
 - `EM_Demand_Phase1.ipynb` — orchestration notebook (logic lives in `scripts/`)
