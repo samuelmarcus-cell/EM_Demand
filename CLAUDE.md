@@ -87,12 +87,18 @@ uses the LGA footprint. SEAUS components exist because national fire counts
 are swamped by routine northern-savanna burning.
 
 Validation = the 12-event benchmark table printed by `scripts/run_dli.py`.
-Current result: 9/12 events ≥ 93rd within-tier percentile; the honest misses
-are the 2022 floods (~83rd; DRFA is the only flood signal and persists for
-weeks) and TAS 2016 / QLD Deepwater 2018 (~61st–70th; regionally severe,
-nationally moderate). **Do not tune the combiner to push these up** — that is
-overfitting 12 data points. Any recipe change must re-run the benchmark table
-and must not degrade the fire benchmarks below the 93rd percentile.
+Exact current result (recomputed 2026-07-07 from demand_daily_panel):
+**seven of 12 events ≥ 95th within-tier percentile** (Black Saturday 99.93,
+Ash Wednesday 99.67, Dandenongs 99.61, Canberra 99.61, Dunalley 98.72,
+Black Summer 97.76, NSW Jan 1994 95.30); near-misses TC Yasi 92.91 and
+NSW Blue Mtns Oct 2013 89.59; honest misses 2022 floods 82.57 (DRFA is the
+only flood signal and persists for weeks), TAS 2016 60.72 and QLD Deepwater
+2018 69.82 (regionally severe, nationally moderate). Never round these up
+("9/12 ≥ 93rd" was a past overstatement, corrected). **Do not tune the
+combiner to push these up** — that is overfitting 12 data points. Any recipe
+change must re-run the benchmark table; the gate is: keep the seven
+≥95th-percentile fire events at or above the 93rd, and do not lower any
+other event's percentile materially.
 
 ## Pipeline (run order) and checkpoints
 

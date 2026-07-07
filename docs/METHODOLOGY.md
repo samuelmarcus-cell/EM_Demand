@@ -142,18 +142,28 @@ extreme events (Black Saturday, Ash Wednesday, the 2003 Canberra fires,
 TC Yasi, Black Summer, the 2022 east-coast floods, …). The question asked:
 *on the event's peak day, what within-tier percentile does the DLI reach?*
 
-Result: **9 of 12 events score at or above the 93rd percentile** (Black
-Saturday 99.9th, Ash Wednesday 99.7th, Canberra 99.6th). The honest misses
+Result (exact, recomputed from `demand_daily_panel.parquet`): **seven of
+12 events score at or above the 95th percentile** (Black Saturday 99.93rd,
+Ash Wednesday 99.67th, Dandenongs 99.61st, Canberra 99.61st, Dunalley
+98.72nd, Black Summer 97.76th, NSW Jan 1994 95.30th), with TC Yasi at
+92.91st and the NSW Blue Mountains Oct 2013 at 89.59th. The honest misses
 are documented, understood, and deliberately not tuned away:
 
-- 2022 east-coast floods ≈ 83rd — DRFA is the only flood-sensitive
+- 2022 east-coast floods 82.6th — DRFA is the only flood-sensitive
   component and its activations persist for weeks, flattening the peak;
-- Tasmania 2016 and Deepwater 2018 ≈ 61st–70th — regionally severe events
-  that genuinely were nationally moderate.
+- Tasmania 2016 (60.7th) and Deepwater 2018 (69.8th) — regionally severe
+  events that genuinely were nationally moderate.
 
-Tuning the combiner until these three pass would be overfitting twelve data
-points; any future recipe change must re-run this benchmark and must not
-degrade the fire benchmarks below the 93rd percentile.
+Note the benchmark's epistemic status: it is a face-validity check, not
+independent validation — the events are selected *because* they are known
+high-demand days, and some components (TC tracks, DRFA) directly encode
+those same events. What it genuinely tests is the combiner: whether the
+recipe surfaces known extremes without dilution or inflation.
+
+Tuning the combiner until the misses pass would be overfitting twelve data
+points; any future recipe change must re-run this benchmark, keep the
+seven ≥95th-percentile fire events at or above the 93rd, and not lower
+any other event's percentile materially.
 
 ## 6. Cross-validation of the fire record (FIRMS vs DEA)
 

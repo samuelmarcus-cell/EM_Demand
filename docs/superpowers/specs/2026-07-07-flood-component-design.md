@@ -71,9 +71,11 @@ unweighted version fails validation.
    national area metric).
 2. **Hard adoption gate (recipe change rules apply):** re-run the 12-event
    benchmark table (`scripts/run_dli.py`). Adopt sub_flood only if the
-   2022 floods benchmark rises above its current ~83rd percentile AND no
-   fire benchmark drops below the 93rd. Otherwise report and stop — do not
-   tune the combiner to the benchmarks.
+   2022 floods benchmark rises above its current 82.57th percentile AND the
+   seven fire events currently ≥ 95th all stay ≥ 93rd AND no other event's
+   percentile drops materially (TC Yasi 92.91st and Blue Mtns 89.59th are
+   the current baseline). Otherwise report and stop — do not tune the
+   combiner to the benchmarks.
 
 ## Pipeline shape
 
