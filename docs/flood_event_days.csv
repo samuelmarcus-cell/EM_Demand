@@ -1,0 +1,21 @@
+# Peak-day anchors verified 2026-07-07.
+# Dates are the closest defensible daily anchor for the named event peak.
+# Brisbane 2011: corrected from seed 2011-01-11 (Toowoomba/Lockyer flash-flood day)
+#   to 2011-01-13 — Brisbane River peaked at 4.46 m AHD at 3am 13 Jan (BOM fact sheet).
+# Oswald/Bundaberg 2013: corrected from seed 2013-01-27 to 2013-01-29
+#   — Burnett River at Bundaberg peaked at 9.53 m (new record) on 29 Jan (BOM Oswald report).
+# Townsville 2019: corrected from seed 2019-02-03 (dam release night) to 2019-02-04
+#   — downstream Ross River suburban flooding peaked ~11am 4 Feb (TCC media release).
+# QLD/NSW 2022: seed 2022-02-28 confirmed — Brisbane River peaked 3.85 m, Wivenhoe 184% on 28 Feb.
+# VIC Oct 2022: seed 2022-10-14 confirmed — Rochester, Seymour inundated 14 Oct (BOM VIC summary).
+# WA Warmun 2011: seed 2011-03-13 retained — peak within 10–14 Mar window; 13 Mar
+#   aligns with reported weekend evacuation and AIDR knowledge hub timeline.
+# WA Fitzroy 2023: seed 2023-01-04 confirmed — Fitzroy Crossing peaked 15.81 m on 4 Jan (NASA EO).
+name,date,source
+QLD Brisbane 2011,2011-01-13,QLD Flood Extent Series (BOM fact sheet: Brisbane City gauge 4.46 m 3am 13 Jan)
+QLD Australia Day 2013,2013-01-29,QLD Flood Extent Series (BOM Oswald report: Burnett R Bundaberg 9.53 m 29 Jan)
+QLD Townsville 2019,2019-02-04,QLD Flood Extent Series (TCC media release: downstream peak ~11am 4 Feb)
+QLD/NSW Feb-Mar 2022,2022-02-28,QLD Flood Extent Series (benchmark day; Brisbane R 3.85 m Wivenhoe 184%)
+VIC October 2022,2022-10-14,VIC VFD Oct 2022 dataset (Rochester and Seymour inundated 14 Oct)
+WA Warmun 2011,2011-03-13,WA DWER-123 (peak within 10-14 Mar window; evacuation weekend 13 Mar)
+WA Fitzroy 2023,2023-01-04,WA DWER-123 (NASA EO: Fitzroy Crossing 15.81 m record on 4 Jan)
