@@ -85,7 +85,7 @@ DBSCAN_TEMPORAL_DAYS = 2
 GADI = {
     "project": "gb02",
     "user_gdata": "/g/data/gb02/sm5259/EM_Demand",
-    "storage_flags": "gdata/if69+gdata/su28+gdata/gb02+gdata/xp65+gdata/ia39+gdata/rt52",
+    "storage_flags": "gdata/if69+gdata/su28+gdata/gb02+gdata/xp65+gdata/ia39+gdata/rt52+gdata/zv2",
     "ffdi_zarr": "/g/data/ia39/ncra/fire/bias-input/ffdi/"
                  "AUST-05i_BOM_ERA5_historical_hres_BARRAR2_v1_day_FFDI.zarr",
     "weather_objects": "/g/data/if69/cj0591/GC26_energy_synoptics/data/weatherfeatures.era5/",

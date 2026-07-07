@@ -1,0 +1,10 @@
+#!/bin/bash
+#PBS -P gb02
+#PBS -q normalbw
+#PBS -l ncpus=14,mem=120GB,walltime=06:00:00,wd
+#PBS -l storage=gdata/zv2+gdata/gb02+gdata/xp65
+#PBS -N agcd_rain
+module use /g/data/xp65/public/modules
+module load conda/analysis3
+# qsub this from the directory holding extract_agcd_rain.py (files sit flat on Gadi)
+python3 extract_agcd_rain.py
