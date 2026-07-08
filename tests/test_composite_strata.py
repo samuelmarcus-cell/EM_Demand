@@ -79,3 +79,22 @@ def test_margin_nan_when_single_stratum_scored():
     df.loc[99, ["sub_tfb", "sub_tc", "sub_drfa"]] = np.nan
     out = assign_strata(df).set_index("date")
     assert np.isnan(out.loc[pd.Timestamp("2015-04-10"), "margin"])
+
+
+def test_strata_to_composite_min_days():
+    import importlib.util
+    from pathlib import Path
+
+    p = Path(__file__).resolve().parents[1] / "gadi" / "demand_composites.py"
+    spec = importlib.util.spec_from_file_location("demand_composites", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    days = pd.DataFrame(
+        {
+            "date": pd.date_range("2015-01-01", periods=40),
+            "stratum": ["fire"] * 30 + ["tc"] * 10,
+        }
+    )
+    assert mod.strata_to_composite(days) == ["fire"]
+    assert mod.strata_to_composite(days, min_days=10) == ["fire", "tc"]

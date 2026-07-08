@@ -1,0 +1,13 @@
+#!/bin/bash
+#PBS -P gb02
+#PBS -q normal
+#PBS -l ncpus=2
+#PBS -l mem=9GB
+#PBS -l walltime=08:00:00
+#PBS -l storage=gdata/rt52+gdata/xp65+gdata/gb02
+#PBS -l wd
+#PBS -N demand_comp
+#PBS -j oe
+module use /g/data/xp65/public/modules
+module load conda/analysis3
+python3 demand_composites.py
