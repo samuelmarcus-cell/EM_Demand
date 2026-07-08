@@ -26,8 +26,8 @@ panel_lab <- setNames(paste0(strata, " (n = ", n_days, ")"), strata)
 
 grid <- expand_grid(stratum = factor(strata, levels = strata),
                     lat = lat, lon = lon)
-# as.vector([lon,lat,stratum]): lon varies fastest, then lat, then stratum.
-# expand_grid(stratum, lat, lon): lon fastest, then lat, then stratum. Match.
+# as.vector on [lon,lat,stratum] array is column-major: lon (first dim) varies fastest,
+# then lat, then stratum. expand_grid's last argument (lon) varies fastest; thus orders match.
 
 frame_of <- function(prefix) {
   grid |>
