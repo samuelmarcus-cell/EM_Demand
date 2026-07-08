@@ -342,14 +342,153 @@ in their demand on nationwide EM resources. Decisions:
    closes). It discovers the patterns from the data instead of imposing the
    SWT classification (§7.5), and it supersedes the SWT attribution as the
    primary attribution analysis — the SWT RRs become a consistency check.
-   **Evaluation is pending:** the Gadi ERA5 compositing job
-   (`gadi/demand_composites.py` + `.pbs`) has not yet run; figure validation
-   (face-validity gate + pre-registered predictions in the spec §5 and §8)
-   must be applied when `demand_composites.nc` arrives. Spec and evaluation
-   protocol: `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md`.
+   **Evaluated 2026-07-08: face-validity gate passed, all pre-registered
+   predictions confirmed — full results and replication guide in §11.**
+   Spec: `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md`.
 3. **Then a state×hazard compounding panel** — which states are under
    which hazard load on the same day — as the substrate for the real
    compound-demand analysis, which will also bring in the weather-object
    pipeline (`docs/phase2_weather_objects_notes.md`).
 4. **Fires_SWTs is demoted from foundation to audited input** (§1); its
    SWT classifier still needs its own audit.
+
+## 11. Composite pilot — results and how to replicate it (2026-07-08)
+
+This section is written so the analysis can be rebuilt from scratch by a
+person, with every methodological choice explained. It is the record of
+*why* each step is the way it is, not just what was run.
+
+### 11.1 The question and the logic of the method
+
+Hypothesis (spec §1): the different hazards that generate high national EM
+demand arise from **distinct large-scale atmospheric configurations**. The
+test is a composite: take all high-demand days attributed to one hazard,
+average the atmosphere over them, subtract what the atmosphere looks like
+on an ordinary day at that time of year, and see what structure survives.
+If fire days and cyclone days average to visibly different, physically
+sensible patterns, the hypothesis holds. Averaging kills anything that
+isn't common to most of the days — so any surviving structure is a real
+shared signature, not one memorable event.
+
+Why composites and not the SWT weather types: the SWT attribution can only
+answer inside Barnes's pre-defined categories, and §7.5 showed those
+categories misfile landmark days (Black Saturday → "active monsoon").
+Composites have no classifier in the loop: days are chosen by *demand*,
+and the atmosphere is simply averaged as it was.
+
+### 11.2 Choosing and labelling the days
+
+1. **High-demand days:** DLI ≥ the 95th percentile *within its confidence
+   tier*, 1979–present (same selection as the SWT attribution, so results
+   are comparable). Within-tier, because a raw percentile would let the
+   data-rich satellite era dominate.
+2. **Dominant hazard = argmax of the hazard subindices** on each day
+   (`scripts/composite_strata.py::assign_strata`). Argmax was chosen
+   **because it has no tunable threshold** — an earlier draft defined
+   "multi-hazard days" as two subindices ≥ 0.90 and could not justify the
+   0.90. Every numeric cutoff needs a justification; argmax needs none.
+3. `sub_tfb` folds into fire (a total fire ban is a fire-danger decision).
+4. `sub_drfa` days form a **descriptive-only** stratum: DRFA is a funding
+   activation, not a hazard — it mixes hazards and lags the weather by
+   days-to-weeks, so it is excluded from the hypothesis test and plotted
+   only in supplementary figures.
+5. Result (runner `scripts/run_composite_strata.py`): 869 high-demand
+   days — fire 387, tc 387, drfa-led 95. No flood stratum yet: `sub_flood`
+   exists only after the AGCD adoption gate closes. Strata with n < 30
+   would be reported but not composited (too noisy); none are.
+
+**Top-two margins** (how decisively each day's biggest subindex beats its
+second — the evidence a future compound-day definition needs): median
+margin 0.110; quantiles 5% = 0.009, 25% = 0.049, 75% = 0.181, 95% = 0.309.
+So a twentieth of days are effective ties between two hazards — those are
+the candidate compound-demand days, and they will be defined properly in
+the compounding panel, not by an arbitrary cutoff here.
+
+### 11.3 Fields, anomalies, and the one subtle trap
+
+ERA5 daily 12 UTC fields (Gadi project `rt52`), lon 80–180 / lat −60..−5,
+4× coarsened: `msl` (circulation: ridge vs low), `t850` + `u850`/`v850`
+(heat advection and the northerly-flow question), `tcwv` (moisture —
+separates fire from tc/flood). Composites are **day-of-year anomalies**:
+each day minus the 1979–2023 climatology for that calendar day, so a
+summer composite never just shows "it was summer".
+
+The trap: the climatology must be built from **ALL days in the period,
+not just the labelled ones**. The labels CSV covers only 869 days; if you
+(or a rewritten script) compute the calendar-day climatology from labelled
+days only, the "anomaly" becomes high-demand days minus *other high-demand
+days* and everything cancels. `gadi/demand_composites.py` reindexes the
+labels onto the full date range and leaves unlabelled days in for the
+climatology; only the compositing step selects by label.
+
+### 11.4 Exact replication steps
+
+```
+/opt/anaconda3/bin/python3 scripts/run_composite_strata.py
+# → data/derived/demand_stratum_days.csv + counts + margin table
+
+# copy to a flat dir on Gadi (/g/data/gb02/<user>/EM_Demand):
+#   demand_stratum_days.csv, gadi/demand_composites.py, gadi/demand_composites.pbs,
+#   fires_swts/gadi/composite_core.py, fires_swts/gadi/read_era5.py
+
+# on Gadi: DRY RUN FIRST (standing rule — local tests cannot hit
+# dask/chunking failures): python args --start 1990-01 --end 1991-12, ~0.3 SU.
+# Then the full job: qsub demand_composites.pbs   (job 173343702: 7.11 SU,
+# 1h35 walltime, 2 CPUs / 9 GB). Days composited within 1979–2023:
+# fire 370, tc 347, drfa-led 77 (the rest of the 869 fall after 2023).
+
+# copy demand_composites.nc back to data/raw/composites/, then:
+/opt/anaconda3/envs/rfigs/bin/Rscript R/demand_composites.R
+```
+
+R-side trap: ncdf4 returns arrays with dimensions reversed relative to
+xarray — (stratum, lat, lon) arrives as [lon, lat, stratum]; the script's
+`expand_grid`/`as.vector` pairing depends on that order.
+
+Gadi-side lesson (cost us a full AGCD run): results are written only at
+the end of a job, so an over-tight walltime loses *everything*. Budget
+walltime at ~2× the dry-run-scaled estimate.
+
+### 11.5 Results against the pre-registered predictions
+
+The predictions were written in the spec (§5) before any map existed, and
+the rule is report-never-tune. All confirmed:
+
+| Prediction (spec §5) | Outcome |
+|---|---|
+| fire: positive MSLP / ridge | Confirmed — significant high anomaly over the Tasman/SE Australia with a deep low anomaly south of the Bight (blocking dipole) |
+| fire: dry TCWV | Confirmed — significant dry anomaly over eastern/interior Australia |
+| tc: deep negative MSLP | Confirmed in structure — significant negative anomaly with a closed low in the mean contours over tropical NW Australia; magnitude modest (−1 to −2 hPa), as expected when compact cyclones at varying locations are averaged |
+| tc (and flood): moist TCWV | Confirmed for tc (strong +TCWV across the tropical north); flood untestable until the AGCD gate closes |
+
+**Face-validity gate (blocking, spec §8): PASSED** — the tc composite
+shows a closed low with high TCWV, i.e. the machinery recovers a cyclone
+from cyclone days.
+
+**Secondary (audit follow-up):** the fire composite shows the blocking
+ridge + hot (+2 K) T850 plume with northerly flow over SE Australia — the
+structure the Fires_SWTs *danger* result predicts. Since the composite has
+no classifier in the loop, this is direct evidence that the SWT *labels*
+(which file Black Saturday under "active monsoon") are the weak link, not
+the atmosphere. The AM-family caveat of §7.5 stands.
+
+**drfa-led (descriptive):** weak and spatially incoherent — consistent
+with a lagged, hazard-mixing funding proxy. Its incoherence is the result.
+
+### 11.6 What this does and does not establish
+
+Established: fire-driven and tc-driven high demand have visibly distinct,
+physically correct synoptic fingerprints, recovered by an index built
+entirely from demand-side data that never saw the atmosphere. That is
+(a) a validation of the DLI's hazard subindices, and (b) the physical
+premise of the compounding phase — spatially compounding demand means
+*different* drivers loading the system at once, which requires the
+drivers to be distinct.
+
+Not established: any formal statistical separation of the patterns. The
+stippling is pointwise p < 0.05 with no field-wise multiplicity correction
+and serial dependence within events (anti-conservative) — descriptive
+only, disclosed in every caption. The formal pattern-separation test
+(composite pattern correlation against block-resampled nulls) is
+deliberately deferred to the full analysis; the pilot's job was to decide
+whether that machinery is worth building. It is.
