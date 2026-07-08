@@ -85,6 +85,17 @@ the `rfigs` conda env; input CSVs come from `scripts/run_figures_data.py` and
   TC/flood days excluded since FFDI is fire danger (`R/ffdi_maps.R`; needs
   `data/raw/ffdi/ffdi_maps.nc` from `gadi/extract_ffdi.pbs`)
 
+**Composite figures — pending Gadi output** (`demand_composites.nc` not yet
+produced; see `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md`
+§4 for the Gadi workflow and §5 for pre-registered predictions):
+
+- `fig_composite_msl.png` — MSLP anomaly fill + mean contours, panels by
+  hazard stratum (fire / tc / drfa-led); rendered by `R/demand_composites.R`
+- `fig_composite_t850_wind.png` — 850 hPa temperature anomaly + wind anomaly
+  vectors, panels by stratum
+- `fig_composite_tcwv.png` — total column water vapour anomaly, panels by
+  stratum
+
 ## Layout
 
 - `EM_Demand_Phase1.ipynb` — orchestration notebook (logic lives in `scripts/`)

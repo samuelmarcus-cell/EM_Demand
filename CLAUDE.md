@@ -191,6 +191,24 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   below 0.93 — never tune to pass it, keep the seven ≥95th fire events at or
   above 93rd). Validation set = dated historical flood extents (QLD 1893–2025
   the standout; VIC, WA also): inventory in `docs/flood_data_layers.md`.
+- **Composite pilot implemented 2026-07-08.** Stratum assignment:
+  `scripts/composite_strata.py` (argmax of hazard subindices; tfb folds into
+  fire); runner: `scripts/run_composite_strata.py` → `data/derived/demand_stratum_days.csv`
+  (current: 869 high-demand days — fire 387, tc 387, drfa-led 95; flood stratum
+  absent until AGCD gate closes). Gadi composites: `gadi/demand_composites.py`
+  + `.pbs` (msl, t850, u850, v850, tcwv; climatology from ALL days; reuses
+  `fires_swts/gadi/composite_core.py` + `read_era5.py`). Figures:
+  `R/demand_composites.R` → `R/figs/fig_composite_msl.png`,
+  `fig_composite_t850_wind.png`, `fig_composite_tcwv.png`. Workflow: run
+  `scripts/run_composite_strata.py` → copy `demand_stratum_days.csv` +
+  `gadi/demand_composites.{py,pbs}` + `fires_swts/gadi/composite_core.py` +
+  `fires_swts/gadi/read_era5.py` to flat Gadi dir → dry run (--start 1990-01
+  --end 1991-12, ~1 SU) → full qsub (~5–15 SU) → copy `demand_composites.nc`
+  to `data/raw/composites/` → `Rscript R/demand_composites.R`. **Figure
+  validation PENDING** (Gadi job not yet run): face-validity gate and
+  pre-registered predictions are in the spec
+  (`docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md` §5 and
+  §8).
 - Phase 2 weather objects: not yet planned, but scaffolded —
   `docs/phase2_weather_objects_notes.md` (reuse the TFB_Objects repo's
   extraction pipeline; use coverage fractions, NOT binary presence, which

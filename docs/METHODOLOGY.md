@@ -332,15 +332,21 @@ in their demand on nationwide EM resources. Decisions:
 1. **The DLI recipe is frozen.** Close the flood adoption gate when the
    Gadi extraction lands; after that, no new components. The planned FFDI
    component is parked indefinitely.
-2. **Classification-free attribution next.** A pilot study tests the
-   hypothesis that *different hazards generating high demand arise from
-   distinct large-scale atmospheric configurations*, by compositing the
-   actual ERA5 fields (MSLP, 850 hPa temperature and wind, column water
-   vapour) on high-demand days stratified by dominant hazard. It discovers
-   the patterns from the data instead of imposing the SWT classification
-   (§7.5), and it supersedes the SWT attribution as the primary
-   attribution analysis — the SWT RRs become a consistency check. Spec:
-   `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md`.
+2. **Classification-free attribution — pilot implemented, evaluation
+   pending.** A pilot study tests the hypothesis that *different hazards
+   generating high demand arise from distinct large-scale atmospheric
+   configurations*, by compositing the actual ERA5 fields (MSLP, 850 hPa
+   temperature and wind, column water vapour) on high-demand days stratified
+   by dominant hazard (argmax of hazard subindices: fire 387 days, tc 387
+   days, drfa-led 95 days; flood stratum absent until the AGCD adoption gate
+   closes). It discovers the patterns from the data instead of imposing the
+   SWT classification (§7.5), and it supersedes the SWT attribution as the
+   primary attribution analysis — the SWT RRs become a consistency check.
+   **Evaluation is pending:** the Gadi ERA5 compositing job
+   (`gadi/demand_composites.py` + `.pbs`) has not yet run; figure validation
+   (face-validity gate + pre-registered predictions in the spec §5 and §8)
+   must be applied when `demand_composites.nc` arrives. Spec and evaluation
+   protocol: `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md`.
 3. **Then a state×hazard compounding panel** — which states are under
    which hazard load on the same day — as the substrate for the real
    compound-demand analysis, which will also bring in the weather-object
