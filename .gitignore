@@ -11,3 +11,5 @@ data/derived/*
 .DS_Store
 data/export/*
 data/raw/ffdi/*
+data/raw/composites/*
+data/raw/agcd/*
