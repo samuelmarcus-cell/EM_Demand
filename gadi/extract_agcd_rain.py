@@ -26,7 +26,18 @@ if DRY:
     print("DRY RUN: 1979-1984 only", flush=True)
 
 print("opening AGCD...", flush=True)
-ds = xr.open_mfdataset(f"{AGCD_DIR}/*.nc", chunks={"lat": 64}, parallel=True)
+# Annual files: glob only the years we need — opening the full archive costs
+# ~125 metadata reads on gdata before any work starts.
+import re
+from glob import glob
+last_year = int(END[:4]) if END else 9999
+files = sorted(
+    f for f in glob(f"{AGCD_DIR}/*.nc")
+    if (m := re.search(r"(19|20)\d{2}", Path(f).name))
+    and 1979 <= int(m.group(0)) <= last_year
+)
+print(f"{len(files)} annual files selected", flush=True)
+ds = xr.open_mfdataset(files, chunks={"lat": 64}, parallel=True)
 pr = ds[VAR].sel(time=slice("1979-01-01", END))
 if pr.lat.values[0] > pr.lat.values[-1]:  # ensure ascending for slice()
     pr = pr.sortby("lat")
