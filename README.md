@@ -85,16 +85,21 @@ the `rfigs` conda env; input CSVs come from `scripts/run_figures_data.py` and
   TC/flood days excluded since FFDI is fire danger (`R/ffdi_maps.R`; needs
   `data/raw/ffdi/ffdi_maps.nc` from `gadi/extract_ffdi.pbs`)
 
-**Composite figures — pending Gadi output** (`demand_composites.nc` not yet
-produced; see `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md`
-§4 for the Gadi workflow and §5 for pre-registered predictions):
+**Composite figures** (validated 2026-07-08; face-validity gate passed and
+all pre-registered predictions confirmed — see
+`docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md` §5):
 
 - `fig_composite_msl.png` — MSLP anomaly fill + mean contours, panels by
-  hazard stratum (fire / tc / drfa-led); rendered by `R/demand_composites.R`
+  hazard stratum (fire / tc; flood pending the AGCD adoption gate);
+  rendered by `R/demand_composites.R`
 - `fig_composite_t850_wind.png` — 850 hPa temperature anomaly + wind anomaly
-  vectors, panels by stratum
+  vectors, panels by hazard stratum
 - `fig_composite_tcwv.png` — total column water vapour anomaly, panels by
-  stratum
+  hazard stratum
+- `fig_supp_drfa_{msl,t850_wind,tcwv}.png` — supplementary: the same fields
+  for DRFA-led days. DRFA is a funding activation, not a hazard, so it is
+  kept out of the main hazard panels; shown for completeness, excluded from
+  the fingerprint comparison
 
 ## Layout
 

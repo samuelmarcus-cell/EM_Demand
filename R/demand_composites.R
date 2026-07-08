@@ -2,6 +2,11 @@
 # Composite anomaly maps of high-demand days by dominant-hazard stratum.
 # Run: /opt/anaconda3/envs/rfigs/bin/Rscript R/demand_composites.R
 #
+# Main figures show HAZARD strata only (fire, tc, and flood once the AGCD
+# adoption gate closes). drfa-led is a funding activation, not a hazard —
+# it is plotted in separate supplementary figures (fig_supp_drfa_*) so the
+# main panels never present it as a third hazard pathway.
+#
 # ncdf4 reverses xarray dim order: xarray (stratum, lat, lon) -> ncdf4
 # [lon, lat, stratum].
 
@@ -38,12 +43,19 @@ frame_of <- function(prefix) {
                           levels = panel_lab))
 }
 
+hazard_strata <- setdiff(strata, "drfa-led")
+
 aus <- ne_countries(country = "Australia", scale = "medium", returnclass = "sf")
 
 caption_txt <- paste(
   "Stippling: pointwise p < 0.05 (composite t-test). Descriptive only:",
   "no field-wise multiplicity correction, and serial dependence within",
   "events makes it anti-conservative.")
+
+drfa_caption <- str_wrap(paste(
+  "DRFA is a disaster-funding activation, not a hazard: it mixes hazards and",
+  "lags the causal meteorology by days to weeks. Shown for completeness,",
+  "excluded from the fingerprint comparison.", caption_txt), width = 95)
 
 # Stipple layer: every 3rd grid point with p < 0.05
 stipple <- function(df) {
@@ -59,72 +71,99 @@ base_theme <- theme_minimal(base_size = 9) +
 
 dir.create("R/figs", showWarnings = FALSE, recursive = TRUE)
 
+# Anomaly colour limits are computed over ALL strata so main and
+# supplementary figures for the same field share one scale and stay
+# visually comparable.
+
 # -- MSL: anomaly fill (hPa) + mean contours ---------------------------------
 msl <- frame_of("msl") |> mutate(anom = anom / 100, mean = mean / 100)
-p1 <- ggplot(msl) +
-  geom_raster(aes(lon, lat, fill = anom)) +
-  geom_contour(aes(lon, lat, z = mean), colour = "grey25",
-               linewidth = 0.2, bins = 12) +
-  geom_point(data = stipple(msl), aes(lon, lat), size = 0.05,
-             colour = "black", alpha = 0.5) +
-  geom_sf(data = aus, fill = NA, colour = "grey40", linewidth = 0.2,
-          inherit.aes = FALSE) +
-  scale_fill_distiller(palette = "RdBu", name = "MSLP anom (hPa)",
-                       limits = c(-1, 1) * max(abs(msl$anom), na.rm = TRUE)) +
-  coord_sf(xlim = range(lon), ylim = range(lat), expand = FALSE) +
-  facet_wrap(~panel) +
-  labs(title = "MSLP composite anomalies, high-demand days by dominant hazard",
-       x = NULL, y = NULL, caption = caption_txt) +
-  base_theme
-ggsave("R/figs/fig_composite_msl.png", p1, width = 10, height = 6, dpi = 300)
-cat("wrote R/figs/fig_composite_msl.png\n")
+msl_lim <- c(-1, 1) * max(abs(msl$anom), na.rm = TRUE)
+plot_msl <- function(df, title, caption, file, width) {
+  p <- ggplot(df) +
+    geom_raster(aes(lon, lat, fill = anom)) +
+    geom_contour(aes(lon, lat, z = mean), colour = "grey25",
+                 linewidth = 0.2, bins = 12) +
+    geom_point(data = stipple(df), aes(lon, lat), size = 0.05,
+               colour = "black", alpha = 0.5) +
+    geom_sf(data = aus, fill = NA, colour = "grey40", linewidth = 0.2,
+            inherit.aes = FALSE) +
+    scale_fill_distiller(palette = "RdBu", name = "MSLP anom (hPa)",
+                         limits = msl_lim) +
+    coord_sf(xlim = range(lon), ylim = range(lat), expand = FALSE) +
+    facet_wrap(~panel) +
+    labs(title = title, x = NULL, y = NULL, caption = caption) +
+    base_theme
+  ggsave(file, p, width = width, height = 6, dpi = 300)
+  cat("wrote", file, "\n")
+}
+plot_msl(filter(msl, stratum %in% hazard_strata),
+         "MSLP composite anomalies, high-demand days by dominant hazard",
+         caption_txt, "R/figs/fig_composite_msl.png", 10)
+plot_msl(filter(msl, stratum == "drfa-led"),
+         "MSLP composite anomalies, DRFA-led high-demand days (non-hazard diagnostic)",
+         drfa_caption, "R/figs/fig_supp_drfa_msl.png", 6)
 
 # -- T850 anomaly fill + 850 hPa wind anomaly vectors ------------------------
 t850 <- frame_of("t850")
-u    <- as.vector(get3d("u850_anom"))
-v    <- as.vector(get3d("v850_anom"))
-t850$u <- u; t850$v <- v
-vec <- t850 |>
-  filter(lon %in% lon[seq(1, length(lon), 4)],
-         lat %in% lat[seq(1, length(lat), 4)])
+t850$u <- as.vector(get3d("u850_anom"))
+t850$v <- as.vector(get3d("v850_anom"))
+t850_lim <- c(-1, 1) * max(abs(t850$anom), na.rm = TRUE)
 sc <- 1.5  # degrees per (m/s) vector scaling
-p2 <- ggplot(t850) +
-  geom_raster(aes(lon, lat, fill = anom)) +
-  geom_point(data = stipple(t850), aes(lon, lat), size = 0.05,
-             colour = "black", alpha = 0.5) +
-  geom_segment(data = vec,
-               aes(lon, lat, xend = lon + sc * u, yend = lat + sc * v),
-               arrow = arrow(length = unit(0.03, "cm")),
-               linewidth = 0.15, colour = "grey15") +
-  geom_sf(data = aus, fill = NA, colour = "grey40", linewidth = 0.2,
-          inherit.aes = FALSE) +
-  scale_fill_distiller(palette = "RdBu", name = "T850 anom (K)",
-                       limits = c(-1, 1) * max(abs(t850$anom), na.rm = TRUE)) +
-  coord_sf(xlim = range(lon), ylim = range(lat), expand = FALSE) +
-  facet_wrap(~panel) +
-  labs(title = "850 hPa temperature + wind anomalies, high-demand days by dominant hazard",
-       x = NULL, y = NULL, caption = caption_txt) +
-  base_theme
-ggsave("R/figs/fig_composite_t850_wind.png", p2, width = 10, height = 6, dpi = 300)
-cat("wrote R/figs/fig_composite_t850_wind.png\n")
+plot_t850 <- function(df, title, caption, file, width) {
+  vec <- df |>
+    filter(lon %in% lon[seq(1, length(lon), 4)],
+           lat %in% lat[seq(1, length(lat), 4)])
+  p <- ggplot(df) +
+    geom_raster(aes(lon, lat, fill = anom)) +
+    geom_point(data = stipple(df), aes(lon, lat), size = 0.05,
+               colour = "black", alpha = 0.5) +
+    geom_segment(data = vec,
+                 aes(lon, lat, xend = lon + sc * u, yend = lat + sc * v),
+                 arrow = arrow(length = unit(0.03, "cm")),
+                 linewidth = 0.15, colour = "grey15") +
+    geom_sf(data = aus, fill = NA, colour = "grey40", linewidth = 0.2,
+            inherit.aes = FALSE) +
+    scale_fill_distiller(palette = "RdBu", name = "T850 anom (K)",
+                         limits = t850_lim) +
+    coord_sf(xlim = range(lon), ylim = range(lat), expand = FALSE) +
+    facet_wrap(~panel) +
+    labs(title = title, x = NULL, y = NULL, caption = caption) +
+    base_theme
+  ggsave(file, p, width = width, height = 6, dpi = 300)
+  cat("wrote", file, "\n")
+}
+plot_t850(filter(t850, stratum %in% hazard_strata),
+          "850 hPa temperature + wind anomalies, high-demand days by dominant hazard",
+          caption_txt, "R/figs/fig_composite_t850_wind.png", 10)
+plot_t850(filter(t850, stratum == "drfa-led"),
+          "850 hPa temperature + wind anomalies, DRFA-led days (non-hazard diagnostic)",
+          drfa_caption, "R/figs/fig_supp_drfa_t850_wind.png", 6)
 
 # -- TCWV anomaly fill --------------------------------------------------------
 tcwv <- frame_of("tcwv")
-p3 <- ggplot(tcwv) +
-  geom_raster(aes(lon, lat, fill = anom)) +
-  geom_point(data = stipple(tcwv), aes(lon, lat), size = 0.05,
-             colour = "black", alpha = 0.5) +
-  geom_sf(data = aus, fill = NA, colour = "grey40", linewidth = 0.2,
-          inherit.aes = FALSE) +
-  scale_fill_distiller(palette = "BrBG", direction = 1,
-                       name = "TCWV anom (kg m⁻²)",
-                       limits = c(-1, 1) * max(abs(tcwv$anom), na.rm = TRUE)) +
-  coord_sf(xlim = range(lon), ylim = range(lat), expand = FALSE) +
-  facet_wrap(~panel) +
-  labs(title = "Total column water vapour anomalies, high-demand days by dominant hazard",
-       x = NULL, y = NULL, caption = caption_txt) +
-  base_theme
-ggsave("R/figs/fig_composite_tcwv.png", p3, width = 10, height = 6, dpi = 300)
-cat("wrote R/figs/fig_composite_tcwv.png\n")
+tcwv_lim <- c(-1, 1) * max(abs(tcwv$anom), na.rm = TRUE)
+plot_tcwv <- function(df, title, caption, file, width) {
+  p <- ggplot(df) +
+    geom_raster(aes(lon, lat, fill = anom)) +
+    geom_point(data = stipple(df), aes(lon, lat), size = 0.05,
+               colour = "black", alpha = 0.5) +
+    geom_sf(data = aus, fill = NA, colour = "grey40", linewidth = 0.2,
+            inherit.aes = FALSE) +
+    scale_fill_distiller(palette = "BrBG", direction = 1,
+                         name = "TCWV anom (kg m⁻²)",
+                         limits = tcwv_lim) +
+    coord_sf(xlim = range(lon), ylim = range(lat), expand = FALSE) +
+    facet_wrap(~panel) +
+    labs(title = title, x = NULL, y = NULL, caption = caption) +
+    base_theme
+  ggsave(file, p, width = width, height = 6, dpi = 300)
+  cat("wrote", file, "\n")
+}
+plot_tcwv(filter(tcwv, stratum %in% hazard_strata),
+          "Total column water vapour anomalies, high-demand days by dominant hazard",
+          caption_txt, "R/figs/fig_composite_tcwv.png", 10)
+plot_tcwv(filter(tcwv, stratum == "drfa-led"),
+          "Total column water vapour anomalies, DRFA-led days (non-hazard diagnostic)",
+          drfa_caption, "R/figs/fig_supp_drfa_tcwv.png", 6)
 
 nc_close(nc)
