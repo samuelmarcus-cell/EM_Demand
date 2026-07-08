@@ -39,7 +39,10 @@ for win in (1, 3, 7):
     acc = pr if win == 1 else pr.rolling(time=win).sum()  # first win-1 days of 1979 are NaN by construction (window not yet filled)
     wet = acc.where(acc >= 1.0)
     thr = wet.sel(time=BASE).groupby("time.month").quantile(0.95, dim="time")
-    thr = thr.squeeze("quantile", drop=True)
+    # scalar q: some xarray versions add a 'quantile' dim, others only a coord
+    if "quantile" in thr.dims:
+        thr = thr.squeeze("quantile", drop=True)
+    thr = thr.drop_vars("quantile", errors="ignore")
     exceed = acc.groupby("time.month") >= thr
     land = pr.isel(time=0).notnull()
     exceed = exceed.where(land)
