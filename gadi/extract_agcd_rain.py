@@ -25,6 +25,12 @@ if DRY:
     OUT = OUT.with_name("agcd_rain_dry.csv")
     print("DRY RUN: 1979-1984 only", flush=True)
 
+# Fail fast: job 173365325 finished 7h of compute then died writing the CSV
+# (PermissionError). Prove the output path is writable BEFORE computing.
+with open(OUT, "a"):
+    pass
+print(f"output path writable: {OUT}", flush=True)
+
 print("opening AGCD...", flush=True)
 # Annual files: glob only the years we need — opening the full archive costs
 # ~125 metadata reads on gdata before any work starts.
@@ -70,8 +76,13 @@ for win in (1, 3, 7):
     frames[f"rain{win}d_area"] = both[f"rain{win}d_area"].to_series()
     frames[f"seaus_rain{win}d"] = both[f"seaus_rain{win}d"].to_series()
 
-out = pd.DataFrame(frames)
-out.index = pd.to_datetime(out.index).normalize()  # AGCD stamps are 09:00 (9am-to-9am rain day)
-out.index.name = "date"
-out.to_csv(OUT, float_format="%.6f")
+    # Checkpoint after every window: jobs have died at the final write
+    # (walltime kill 173344347, PermissionError 173365325) losing ~100 SU
+    # of finished compute each time.
+    out = pd.DataFrame(frames)
+    out.index = pd.to_datetime(out.index).normalize()  # AGCD stamps are 09:00 (9am-to-9am rain day)
+    out.index.name = "date"
+    out.to_csv(OUT, float_format="%.6f")
+    print(f"checkpointed {OUT} ({len(out)} rows, {out.shape[1]} cols)", flush=True)
+
 print(f"wrote {OUT} ({len(out)} rows)", flush=True)

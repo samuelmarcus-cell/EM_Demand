@@ -40,7 +40,7 @@ conversion null, not on the fire RRs or the AM labels.
 | BoM tropical cyclone best-track | TC positions and intensities near Australia | full period |
 | Victorian Total Fire Ban declarations | An operational decision record (how many fire districts under a ban) | 1945– |
 | DEA Hotspots (Geoscience Australia) | An independent hotspot archive, used only to cross-validate FIRMS | 2002– |
-| AGCD v1 daily rainfall (0.05°, Gadi) | Gridded rain — the basis of the flood subindex (v0.2, adoption gate pending) | 1900– (used 1979–) |
+| AGCD v1 daily rainfall (0.05°, Gadi) | Gridded rain — was to be the flood subindex; abandoned 2026-07-09 (§5.2) | 1900– (unused) |
 | SWT climatology (Barnes) | One synoptic weather type per day, 30 types in 8 regime families | 1952– |
 
 **Design principle — availability discipline:** every component is explicitly
@@ -133,16 +133,19 @@ equal-weight mean of whichever subindices are available that day:
 - `sub_drfa` — the DRFA percentile based on the **LGA footprint** (how many
   local government areas are under activation), not the event count;
 - `sub_tfb` — the Victorian Total Fire Ban percentile;
-- `sub_flood` *(v0.2, adoption gate pending)* — mean of six rainfall
-  percentiles: the fraction of land area whose 1-, 3- and 7-day rain
-  accumulation exceeds its local per-month wet-day 95th percentile,
-  computed nationally and for the SEAUS box from AGCD gridded rainfall.
-  Area fractions rather than rain amounts, because flood *demand* scales
-  with how much of the country is being rained on hard, not with the
-  single wettest gauge. The component is fully coded and tested; it enters
-  the released index only if it lifts the 2022-floods benchmark (82.6th)
-  without degrading any fire benchmark below the 93rd — this gate has not
-  yet been run (awaiting the Gadi extraction).
+- `sub_flood` *(ABANDONED 2026-07-09 — never entered the index)* — was to
+  be the mean of six rainfall percentiles: the fraction of land area whose
+  1-, 3- and 7-day rain accumulation exceeds its local per-month wet-day
+  95th percentile, nationally and for the SEAUS box, from AGCD gridded
+  rainfall (area fractions, not rain amounts, because flood *demand*
+  scales with how much of the country is being rained on hard). The
+  component was fully coded and tested, but both full Gadi extraction
+  runs failed at the final output write (a walltime kill, then a file
+  PermissionError — the script saved results only once, at job end, so
+  each failure lost the finished compute). The user terminated the
+  component before its adoption gate could ever be evaluated. **The DLI
+  is therefore frozen without a flood subindex**, and the 2022-floods
+  benchmark remains an honest miss (82.6th, carried by DRFA alone).
 
 Two failure modes drove these choices, both variants were tested and
 rejected:
@@ -309,10 +312,12 @@ regenerable from raw inputs).
 
 ## 9. Current limitations
 
-- **Flood signal is thin (being addressed).** DRFA activations were the only
+- **Flood signal is thin (permanent).** DRFA activations are the only
   flood-sensitive component and they persist for weeks; flood peaks are
   under-sharp (see the 2022 benchmark miss). The AGCD rainfall subindex
-  (§5.2) is the fix — coded and tested, adoption gate pending.
+  that was to fix this was abandoned 2026-07-09 (§5.2) — the limitation
+  now stands as a disclosed property of the frozen index, and any
+  flood-related conclusion must carry it.
 - **Demand is proxied, not measured.** No national record of actual resource
   deployment exists at daily resolution back to 1979; the components are the
   best available traces of workload.
@@ -329,17 +334,19 @@ The index is a **tool, not the point** — the research object is the
 underlying synoptic meteorology of severe hazards that spatially compound
 in their demand on nationwide EM resources. Decisions:
 
-1. **The DLI recipe is frozen.** Close the flood adoption gate when the
-   Gadi extraction lands; after that, no new components. The planned FFDI
-   component is parked indefinitely.
+1. **The DLI recipe is frozen — as of 2026-07-09, without a flood
+   subindex.** The AGCD flood component was abandoned before its adoption
+   gate could run (§5.2); no new components. The planned FFDI component
+   is parked indefinitely.
 2. **Classification-free attribution — pilot implemented, evaluation
    pending.** A pilot study tests the hypothesis that *different hazards
    generating high demand arise from distinct large-scale atmospheric
    configurations*, by compositing the actual ERA5 fields (MSLP, 850 hPa
    temperature and wind, column water vapour) on high-demand days stratified
    by dominant hazard (argmax of hazard subindices: fire 387 days, tc 387
-   days, drfa-led 95 days; flood stratum absent until the AGCD adoption gate
-   closes). It discovers the patterns from the data instead of imposing the
+   days, drfa-led 95 days; no flood stratum — the flood component was
+   abandoned, so the flood fingerprint is permanently untestable in this
+   framework). It discovers the patterns from the data instead of imposing the
    SWT classification (§7.5), and it supersedes the SWT attribution as the
    primary attribution analysis — the SWT RRs become a consistency check.
    **Evaluated 2026-07-08: face-validity gate passed, all pre-registered
@@ -393,8 +400,9 @@ and the atmosphere is simply averaged as it was.
    days-to-weeks, so it is excluded from the hypothesis test and plotted
    only in supplementary figures.
 5. Result (runner `scripts/run_composite_strata.py`): 869 high-demand
-   days — fire 387, tc 387, drfa-led 95. No flood stratum yet: `sub_flood`
-   exists only after the AGCD adoption gate closes. Strata with n < 30
+   days — fire 387, tc 387, drfa-led 95. No flood stratum: `sub_flood`
+   was abandoned 2026-07-09 (§5.2), so per the spec's fallback clause the
+   flood fingerprint cannot be tested. Strata with n < 30
    would be reported but not composited (too noisy); none are.
 
 **Top-two margins** (how decisively each day's biggest subindex beats its
@@ -459,7 +467,7 @@ the rule is report-never-tune. All confirmed:
 | fire: positive MSLP / ridge | Confirmed — significant high anomaly over the Tasman/SE Australia with a deep low anomaly south of the Bight (blocking dipole) |
 | fire: dry TCWV | Confirmed — significant dry anomaly over eastern/interior Australia |
 | tc: deep negative MSLP | Confirmed in structure — significant negative anomaly with a closed low in the mean contours over tropical NW Australia; magnitude modest (−1 to −2 hPa), as expected when compact cyclones at varying locations are averaged |
-| tc (and flood): moist TCWV | Confirmed for tc (strong +TCWV across the tropical north); flood untestable until the AGCD gate closes |
+| tc (and flood): moist TCWV | Confirmed for tc (strong +TCWV across the tropical north); flood permanently untestable (component abandoned) |
 
 **Face-validity gate (blocking, spec §8): PASSED** — the tc composite
 shows a closed low with high TCWV, i.e. the machinery recovers a cyclone

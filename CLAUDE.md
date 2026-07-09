@@ -83,9 +83,16 @@ hazard subindices → DLI = mean of available subindices
 - `sub_tc` = max(`tc_load_pct`, `tc_severity_pct`)
 - `sub_drfa` = `drfa_lga_pct` (LGA footprint, not event count)
 - `sub_tfb` = `tfb_load_pct`
-- `sub_flood` = mean of the six AGCD rain-fraction percentiles (1/3/7-day
-  accumulations, national and SEAUS), 1979–present, NaN outside AGCD coverage
-  (v0.2, adoption gate pending)
+- `sub_flood` — **ABANDONED 2026-07-09 (user decision, final).** Two Gadi
+  extraction runs (~230 SU) died at the single end-of-job CSV write
+  (walltime kill, then PermissionError); the user terminated all flood
+  work. The recipe is **frozen without sub_flood**. The code paths
+  (`scripts/loaders/agcd_rain.py`, sub_flood in `scripts/dli.py`,
+  `scripts/run_flood_validation.py`) remain but are inert with no rain
+  data and must not be revived unless the user explicitly reopens it.
+  Consequence: the 2022-floods benchmark stays an honest miss (82.57),
+  and the composites flood stratum can never be tested (spec fallback
+  clause applies).
 
 Structure choices that were **tested and rejected**: flat component mean
 (dilutes single-hazard events like TC Yasi), top-k mean (order-statistic
@@ -129,12 +136,12 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
 
 - **Strategic pivot (2026-07-07, user decision):** the index is a tool, not
   the point — the research object is the synoptic meteorology of spatially
-  compounding hazard demand. DLI recipe is **frozen** after the flood gate
-  closes; the FFDI component is **parked** (plan kept for reference only).
-  Priorities: (1) close flood gate, (2) pilot ERA5 composite maps of
-  high-demand days stratified by dominant hazard (approved design, spec in
-  progress), (3) state×hazard compounding panel, (4) weather objects in the
-  real compound-day analysis. See `docs/METHODOLOGY.md` §10.
+  compounding hazard demand. **DLI recipe FROZEN 2026-07-09 without
+  sub_flood** (flood component abandoned by user decision — see recipe
+  section above); the FFDI component is **parked** (plan kept for
+  reference only). Priorities: (1) ~~flood gate~~ dead, (2) composites
+  pilot DONE (see below), (3) state×hazard compounding panel, (4) weather
+  objects in the real compound-day analysis. See `docs/METHODOLOGY.md` §10.
 - **Fires_SWTs audited 2026-07-07** (`fires_swts/AUDIT_2026-07-07.md`, also
   at `~/Fires_SWTs/`): all numbers reproduce; danger RRs + conversion null
   SOLID (citable); fire RRs FRAGILE (burn-window imputation — cite only with
@@ -182,15 +189,14 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   complete: Gadi job to extract AGCD daily rainfall area fractions (JSON
   spec → agcd_rain_daily.csv), loader (`scripts/loaders/agcd_rain.py`),
   DLI integration (`scripts/dli.py` sub_flood = mean of six rain percentiles),
-  validation runner (`scripts/run_flood_validation.py`). Task 5 (documentation,
-  this commit) now complete. **Gadi extraction job running; adoption gate
-  pending.** NEXT STEP: user fetches agcd_rain_daily.csv to `data/raw/agcd/`,
-  then run `scripts/run_dli.py` (re-ranks all components including the new
-  rain columns), re-run `scripts/run_flood_validation.py`, and apply adoption
-  gate (2022-floods benchmark must rise above ~0.83 with no fire benchmark
-  below 0.93 — never tune to pass it, keep the seven ≥95th fire events at or
-  above 93rd). Validation set = dated historical flood extents (QLD 1893–2025
-  the standout; VIC, WA also): inventory in `docs/flood_data_layers.md`.
+  validation runner (`scripts/run_flood_validation.py`).
+  **ABANDONED 2026-07-09 before the adoption gate could run** — both full
+  Gadi extraction attempts (173344347 walltime kill; 173365325
+  PermissionError at the final CSV write) lost their finished compute
+  because the script wrote output only once at job end. User decision:
+  no more flood work, final. The adoption gate was never evaluated; the
+  code stays but is inert. Flood-data inventory kept for reference:
+  `docs/flood_data_layers.md`.
 - **Composite pilot implemented 2026-07-08.** Stratum assignment:
   `scripts/composite_strata.py` (argmax of hazard subindices; tfb folds into
   fire); runner: `scripts/run_composite_strata.py` → `data/derived/demand_stratum_days.csv`

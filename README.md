@@ -90,8 +90,8 @@ all pre-registered predictions confirmed — see
 `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md` §5):
 
 - `fig_composite_msl.png` — MSLP anomaly fill + mean contours, panels by
-  hazard stratum (fire / tc; flood pending the AGCD adoption gate);
-  rendered by `R/demand_composites.R`
+  hazard stratum (fire / tc; no flood stratum — flood component abandoned
+  2026-07-09, see METHODOLOGY §5.2); rendered by `R/demand_composites.R`
 - `fig_composite_t850_wind.png` — 850 hPa temperature anomaly + wind anomaly
   vectors, panels by hazard stratum
 - `fig_composite_tcwv.png` — total column water vapour anomaly, panels by
