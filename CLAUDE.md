@@ -171,8 +171,7 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   outrank the fire blocking highs. FH-B itself is NOT demand-enriched (0.69).
   **Audit caveat:** AM labels are suspect (Black Saturday classifies AM-E) —
   report AM results only with the METHODOLOGY.md §7.5 caveat attached.
-- **Figures (2026-07-07, in progress):** plan
-  `docs/superpowers/plans/2026-07-07-figures.md`. Done: `R/figs/`
+- **Figures (2026-07-07, done):** `R/figs/`
   fig_dli_timeseries.png (numbered benchmark events + 90-day rolling mean),
   fig_hotspot_maps.png (7 landmark days), fig_drfa_choropleth.png (LGA 2025
   boundaries via `PATHS.lga_boundaries`, 100% name join after 2 ABS renames).
@@ -195,8 +194,9 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   PermissionError at the final CSV write) lost their finished compute
   because the script wrote output only once at job end. User decision:
   no more flood work, final. The adoption gate was never evaluated; the
-  code stays but is inert. Flood-data inventory kept for reference:
-  `docs/flood_data_layers.md`.
+  code stays but is inert. (Flood docs — plan, spec, data inventory,
+  event-days CSV — deleted in the 2026-07-09 docs cleanup;
+  `scripts/run_flood_validation.py` therefore cannot run, which is moot.)
 - **Composite pilot implemented 2026-07-08.** Stratum assignment:
   `scripts/composite_strata.py` (argmax of hazard subindices; tfb folds into
   fire); runner: `scripts/run_composite_strata.py` → `data/derived/demand_stratum_days.csv`
