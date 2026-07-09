@@ -1,0 +1,99 @@
+import numpy as np
+import pandas as pd
+import pytest
+
+from scripts.state_panel import FIRE_METRICS, STATES, state_fire_layer
+
+
+def _synthetic_metrics(states, dates, scale):
+    """One row per (state, date); metric value = day-of-run index × scale[state]."""
+    rows = []
+    for s in states:
+        for i, d in enumerate(dates):
+            rows.append({"date": d, "region": s,
+                         **{m: (i + 1) * scale[s] for m in FIRE_METRICS}})
+    return pd.DataFrame(rows)
+
+
+def test_fire_percentiles_rank_within_state():
+    # Identical *patterns* in NSW and VIC, wildly different magnitudes:
+    # within-state ranking must give identical percentiles.
+    dates = pd.date_range("2015-01-01", "2015-01-31", freq="D")
+    df = _synthetic_metrics(["NSW", "VIC"], dates, {"NSW": 1.0, "VIC": 1000.0})
+    out = state_fire_layer(df, _windows([]), end="2015-01-31")
+    nsw = out[out.state == "NSW"].set_index("date").loc[dates, "state_fire"]
+    vic = out[out.state == "VIC"].set_index("date").loc[dates, "state_fire"]
+    assert np.allclose(nsw.values, vic.values)
+    # And monotone increasing values -> monotone increasing percentiles
+    assert nsw.is_monotonic_increasing
+
+
+def test_fire_layer_zero_fills_missing_days_within_era():
+    # QLD has rows only on 2 days of Jan 2015; the other days must exist
+    # with metrics treated as zero (lowest ranks), not be absent.
+    dates = pd.to_datetime(["2015-01-10", "2015-01-20"])
+    df = _synthetic_metrics(["QLD"], dates, {"QLD": 1.0})
+    out = state_fire_layer(df, _windows([]), end="2015-01-31")
+    qld_jan = out[(out.state == "QLD") & (out.date.dt.month == 1)
+                  & (out.date.dt.year == 2015)]
+    assert len(qld_jan) == 31
+    active = qld_jan.set_index("date").loc[dates, "state_fire"]
+    quiet = qld_jan[~qld_jan.date.isin(dates)]["state_fire"]
+    assert active.min() > quiet.max()
+
+
+def test_fire_layer_covers_all_states_and_carries_tier():
+    dates = pd.date_range("2015-01-01", "2015-01-05", freq="D")
+    df = _synthetic_metrics(["NSW"], dates, {"NSW": 1.0})
+    out = state_fire_layer(df, _windows([]), end="2015-01-05")
+    assert set(out.state.unique()) == set(STATES)
+    assert out["confidence_tier"].notna().all()
+    assert (out.loc[out.date >= "2012-01-01", "confidence_tier"] == 1).all()
+    # panel starts at 1979 (tier 3 exists via burn windows), never before
+    assert out.date.min() == pd.Timestamp("1979-01-01")
+
+
+def _windows(rows):
+    """rows: list of (window_start, window_end, raw_state_label)."""
+    df = pd.DataFrame(
+        [{"fire_uid": i, "window_start": a, "window_end": b, "state": st}
+         for i, (a, b, st) in enumerate(rows)],
+        columns=["fire_uid", "window_start", "window_end", "state"],
+    )
+    df["window_start"] = pd.to_datetime(df["window_start"])
+    df["window_end"] = pd.to_datetime(df["window_end"])
+    return df
+
+
+def test_state_burn_window_daily_counts_and_normalises_states():
+    from scripts.state_panel import state_burn_window_daily
+    win = _windows([
+        ("1994-01-05", "1994-01-10", "NSW (New South Wales)"),
+        ("1994-01-08", "1994-01-12", "NSW (New South Wales)"),
+        ("1994-01-08", "1994-01-09", "ACT (Australian Capital Territory)"),
+        ("1994-01-08", "1994-01-09", "Qld"),
+    ])
+    out = state_burn_window_daily(win, start="1994-01-01", end="1994-01-31")
+    d = out.set_index(["date", "state"])["n_windows_active"]
+    assert d.loc[(pd.Timestamp("1994-01-08"), "NSW")] == 3   # 2 NSW + 1 ACT
+    assert d.loc[(pd.Timestamp("1994-01-10"), "NSW")] == 2   # end day still active
+    assert d.loc[(pd.Timestamp("1994-01-11"), "NSW")] == 1
+    assert d.loc[(pd.Timestamp("1994-01-08"), "QLD")] == 1
+    assert d.loc[(pd.Timestamp("1994-01-20"), "NSW")] == 0
+    assert "ACT" not in out["state"].values
+
+
+def test_fire_layer_tier3_scores_on_burn_windows():
+    # No hotspot metrics at all; a tier-3 burst of windows in NSW must
+    # out-rank quiet NSW January days.
+    win = _windows([("1994-01-05", "1994-01-15", "NSW (New South Wales)")] * 5)
+    df = _synthetic_metrics(["NSW"], pd.date_range("2015-01-01", "2015-01-02"), {"NSW": 1.0})
+    out = state_fire_layer(df, win, end="2015-01-31")
+    t3 = out[(out.state == "NSW") & (out.confidence_tier == 3)
+             & (out.date.dt.year == 1994) & (out.date.dt.month == 1)]
+    busy = t3[t3.date.between("1994-01-05", "1994-01-15")]["state_fire"]
+    quiet = t3[~t3.date.between("1994-01-05", "1994-01-15")]["state_fire"]
+    assert busy.min() > quiet.max()
+    # tier-3 rows never score on hotspot metrics, tier-1/2 rows never on windows
+    t12 = out[(out.state == "NSW") & (out.confidence_tier != 3)]
+    assert t12["date"].min() == pd.Timestamp("2000-11-01")
