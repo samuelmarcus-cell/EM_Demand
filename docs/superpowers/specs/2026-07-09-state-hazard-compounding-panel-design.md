@@ -177,7 +177,12 @@ not denied); the follow-on composite analysis of cross-hazard days (own
 design, contingent on this panel finding such days exceed chance); any
 change to the frozen DLI recipe; temporal/sequential compounding
 (Richardson-style season overlap); flood (component abandoned 2026-07-09;
-no flood layer is possible and none is faked).
+no flood layer is possible and none is faked); a storm hazard layer from
+the BoM Severe Storms Archive — assessed 2026-07-09 and excluded from the
+co-occurrence test because its reporting effort quadruples between the
+1980s and 1990s and its state totals track population (report bias, not
+hazard); kept as a possible *descriptive* cross-check on compound days
+(post-1990) after the core result exists.
 
 ## 7. Replication note
 
