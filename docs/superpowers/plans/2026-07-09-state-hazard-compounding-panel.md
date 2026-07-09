@@ -19,7 +19,7 @@
 - **TC radius:** 300 km from the state polygon; sensitivity at 200 km and 400 km, reported never tuned. Cyclone intensity = BoM stage code `type == "T"`.
 - **Null:** 1,000 shuffles; whole-calendar-year blocks; each state×hazard series shuffled independently; fire years shuffle **within confidence tier**; tc years shuffle across the whole period; seeded (`np.random.default_rng(seed)`).
 - **Impact check:** descriptive only, no ratio; 30-day follow-up window with sensitivity at 14 and 60 days; 2006-03-20 onward only.
-- **Availability discipline:** every cell NaN outside its source window — fire from `COMPONENT_AVAILABILITY["modis"]` start (2000-11-01; per-state fire metrics are hotspot-era only, so the fire layer is Tier 1–2 and Tier 3 has no fire cells); drfa from `COMPONENT_AVAILABILITY["drfa"]` start (2006-03-20); tc from 1979-01-01. Within a layer's window a missing day means zero activity (fill 0 before ranking). `confidence_tier` carried on every fire row.
+- **Availability discipline:** every cell NaN outside its source window — drfa from `COMPONENT_AVAILABILITY["drfa"]` start (2006-03-20); tc and fire from 1979-01-01. The fire layer mirrors the national sub_fire recipe per tier: **Tier 3 (1979 – 2000-10-31) = per-state count of active polygon burn windows** (the gdb's all-era windows via `load_polygon_windows()`, which carry a `state` column); **Tiers 1–2 (2000-11-01 –) = per-state hotspot metrics**. Never mix the two sources inside one tier. Within a layer's window a missing day means zero activity (fill 0 before ranking). `confidence_tier` carried on every fire row.
 - **Face-validity gate (blocking):** Black Summer peak days must show NSW+VIC (SA optional) simultaneously high on fire; TC Yasi (2011-02-02/03) must flag QLD under tc, not fire. `scripts/run_state_panel.py` exits non-zero if the gate fails.
 - **Environment:** Python is `/opt/anaconda3/bin/python3`; tests `/opt/anaconda3/bin/python3 -m pytest tests/ -q` must stay green (65 currently passing); parquet checkpoints in `data/derived/` (gitignored); commit + push after each task; commit trailer `Co-Authored-By: Claude <model> <noreply@anthropic.com>`.
 - **Daily bucketing:** UTC+10 (AEST, no DST) everywhere.
@@ -34,8 +34,8 @@
 - Test: `tests/test_state_panel.py`
 
 **Interfaces:**
-- Consumes: `data/derived/demand_metrics_daily.parquet` (columns `date, region, concurrent_burden, ignition_load, growth_load, frp_load, ...`; `region ∈ {AUS, SEAUS, NSW, VIC, QLD, SA, WA, TAS, NT}`; per-state rows exist only on active days from 2000-11 on); `scripts.dli.tier_series(dates)`; `scripts.config.COMPONENT_AVAILABILITY`.
-- Produces: `STATES` list, `FIRE_METRICS` list, `FIRE_START` Timestamp, and `state_fire_layer(metrics: pd.DataFrame, end=None) -> pd.DataFrame` with columns `[date, state, state_fire, confidence_tier]` — one row per (day, state) from 2000-11-01 to `end` (default: max date in input).
+- Consumes: `data/derived/demand_metrics_daily.parquet` (columns `date, region, concurrent_burden, ignition_load, growth_load, frp_load, ...`; `region ∈ {AUS, SEAUS, NSW, VIC, QLD, SA, WA, TAS, NT}`; per-state rows exist only on active days from 2000-11 on); polygon burn windows from `scripts.fire_association.load_polygon_windows()` (columns incl. `window_start, window_end, state`; `state` values are messy — "WA (Western Australia)", "NT", "Qld", "ACT (Australian Capital Territory)" — normalise the leading token, uppercase, ACT→NSW); `scripts.dli.tier_series(dates)`; `scripts.config.COMPONENT_AVAILABILITY`, `TIER_BOUNDS`.
+- Produces: `STATES` list, `FIRE_METRICS` list, `FIRE_START` (1979-01-01), `HOTSPOT_START` (2000-11-01), `normalise_state(series) -> pd.Series`, `state_burn_window_daily(windows, start, end) -> pd.DataFrame [date, state, n_windows_active]`, and `state_fire_layer(metrics, windows, end=None) -> pd.DataFrame` with columns `[date, state, state_fire, confidence_tier]` — one row per (day, state) from 1979-01-01 to `end` (default: max date in `metrics`). Tier 3 rows score on burn-window counts; Tier 1–2 rows on hotspot metrics (mirrors `dli.py`'s `fire_windows ... .where(tier == 3)`).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -63,7 +63,7 @@ def test_fire_percentiles_rank_within_state():
     # within-state ranking must give identical percentiles.
     dates = pd.date_range("2015-01-01", "2015-01-31", freq="D")
     df = _synthetic_metrics(["NSW", "VIC"], dates, {"NSW": 1.0, "VIC": 1000.0})
-    out = state_fire_layer(df, end="2015-01-31")
+    out = state_fire_layer(df, _windows([]), end="2015-01-31")
     nsw = out[out.state == "NSW"].set_index("date").loc[dates, "state_fire"]
     vic = out[out.state == "VIC"].set_index("date").loc[dates, "state_fire"]
     assert np.allclose(nsw.values, vic.values)
@@ -76,7 +76,7 @@ def test_fire_layer_zero_fills_missing_days_within_era():
     # with metrics treated as zero (lowest ranks), not be absent.
     dates = pd.to_datetime(["2015-01-10", "2015-01-20"])
     df = _synthetic_metrics(["QLD"], dates, {"QLD": 1.0})
-    out = state_fire_layer(df, end="2015-01-31")
+    out = state_fire_layer(df, _windows([]), end="2015-01-31")
     qld_jan = out[(out.state == "QLD") & (out.date.dt.month == 1)
                   & (out.date.dt.year == 2015)]
     assert len(qld_jan) == 31
@@ -88,12 +88,58 @@ def test_fire_layer_zero_fills_missing_days_within_era():
 def test_fire_layer_covers_all_states_and_carries_tier():
     dates = pd.date_range("2015-01-01", "2015-01-05", freq="D")
     df = _synthetic_metrics(["NSW"], dates, {"NSW": 1.0})
-    out = state_fire_layer(df, end="2015-01-05")
+    out = state_fire_layer(df, _windows([]), end="2015-01-05")
     assert set(out.state.unique()) == set(STATES)
     assert out["confidence_tier"].notna().all()
     assert (out.loc[out.date >= "2012-01-01", "confidence_tier"] == 1).all()
-    # starts at the hotspot-era start, never before
-    assert out.date.min() == pd.Timestamp("2000-11-01")
+    # panel starts at 1979 (tier 3 exists via burn windows), never before
+    assert out.date.min() == pd.Timestamp("1979-01-01")
+
+
+def _windows(rows):
+    """rows: list of (window_start, window_end, raw_state_label)."""
+    df = pd.DataFrame(
+        [{"fire_uid": i, "window_start": a, "window_end": b, "state": st}
+         for i, (a, b, st) in enumerate(rows)],
+        columns=["fire_uid", "window_start", "window_end", "state"],
+    )
+    df["window_start"] = pd.to_datetime(df["window_start"])
+    df["window_end"] = pd.to_datetime(df["window_end"])
+    return df
+
+
+def test_state_burn_window_daily_counts_and_normalises_states():
+    from scripts.state_panel import state_burn_window_daily
+    win = _windows([
+        ("1994-01-05", "1994-01-10", "NSW (New South Wales)"),
+        ("1994-01-08", "1994-01-12", "NSW (New South Wales)"),
+        ("1994-01-08", "1994-01-09", "ACT (Australian Capital Territory)"),
+        ("1994-01-08", "1994-01-09", "Qld"),
+    ])
+    out = state_burn_window_daily(win, start="1994-01-01", end="1994-01-31")
+    d = out.set_index(["date", "state"])["n_windows_active"]
+    assert d.loc[(pd.Timestamp("1994-01-08"), "NSW")] == 3   # 2 NSW + 1 ACT
+    assert d.loc[(pd.Timestamp("1994-01-10"), "NSW")] == 2   # end day still active
+    assert d.loc[(pd.Timestamp("1994-01-11"), "NSW")] == 1
+    assert d.loc[(pd.Timestamp("1994-01-08"), "QLD")] == 1
+    assert d.loc[(pd.Timestamp("1994-01-20"), "NSW")] == 0
+    assert "ACT" not in out["state"].values
+
+
+def test_fire_layer_tier3_scores_on_burn_windows():
+    # No hotspot metrics at all; a tier-3 burst of windows in NSW must
+    # out-rank quiet NSW January days.
+    win = _windows([("1994-01-05", "1994-01-15", "NSW (New South Wales)")] * 5)
+    df = _synthetic_metrics(["NSW"], pd.date_range("2015-01-01", "2015-01-02"), {"NSW": 1.0})
+    out = state_fire_layer(df, win, end="2015-01-31")
+    t3 = out[(out.state == "NSW") & (out.confidence_tier == 3)
+             & (out.date.dt.year == 1994) & (out.date.dt.month == 1)]
+    busy = t3[t3.date.between("1994-01-05", "1994-01-15")]["state_fire"]
+    quiet = t3[~t3.date.between("1994-01-05", "1994-01-15")]["state_fire"]
+    assert busy.min() > quiet.max()
+    # tier-3 rows never score on hotspot metrics, tier-1/2 rows never on windows
+    t12 = out[(out.state == "NSW") & (out.confidence_tier != 3)]
+    assert t12["date"].min() == pd.Timestamp("2000-11-01")
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -120,9 +166,15 @@ from scripts.dli import tier_series
 
 STATES = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT"]
 FIRE_METRICS = ["concurrent_burden", "ignition_load", "growth_load", "frp_load"]
-# Per-state fire metrics exist only in the hotspot era (Tiers 1-2); the
-# fire layer is NaN-by-absence before this date (availability discipline).
-FIRE_START = pd.Timestamp(COMPONENT_AVAILABILITY["modis"][0])
+FIRE_START = pd.Timestamp("1979-01-01")   # tier 3 fire = polygon burn windows
+HOTSPOT_START = pd.Timestamp(COMPONENT_AVAILABILITY["modis"][0])  # 2000-11-01
+
+
+def normalise_state(raw: pd.Series) -> pd.Series:
+    """Normalise messy gdb state labels ("WA (Western Australia)", "Qld",
+    "ACT (...)") to the panel's 7 abbreviations; ACT folds into NSW."""
+    abbrev = raw.astype(str).str.split(" ").str[0].str.upper()
+    return abbrev.replace({"ACT": "NSW"})
 
 
 def _per_state_daily(df, value_cols, states, idx, fill=0.0):
@@ -145,30 +197,82 @@ def _per_state_daily(df, value_cols, states, idx, fill=0.0):
     return pd.concat(frames, ignore_index=True)
 
 
-def state_fire_layer(metrics: pd.DataFrame, end=None) -> pd.DataFrame:
-    """Per-state fire hazard-load percentiles.
+def state_burn_window_daily(windows: pd.DataFrame, start=None, end=None) -> pd.DataFrame:
+    """Per-state daily count of active polygon burn windows.
 
-    Each metric is percentile-ranked within (state, confidence_tier,
-    calendar month) — the project's standard machinery; state_fire is the
-    mean of available metric percentiles, exactly parallel to the frozen
-    national sub_fire recipe.
+    Same sweep-line logic and +1-day end convention as the national
+    burn_window_daily in scripts/fire_association.py. This is the Tier-3
+    fire-activity signal: no satellite record before Nov 2000, so daily
+    fire activity is the count of mapped fires whose window covers the day.
+    Returns [date, state, n_windows_active] on the full daily grid.
+    """
+    w = windows.dropna(subset=["window_start", "window_end"]).copy()
+    w["state"] = normalise_state(w["state"])
+    w = w[w["state"].isin(STATES)]
+    start = pd.Timestamp(start) if start is not None else FIRE_START
+    end = pd.Timestamp(end) if end is not None else w["window_end"].max()
+    idx = pd.date_range(start, end, freq="D", name="date")
+    frames = []
+    for state in STATES:
+        g = w[w["state"] == state]
+        starts = g["window_start"].dt.normalize().value_counts()
+        # +1 day: a window ending on day D is still active on D
+        ends = (g["window_end"].dt.normalize() + pd.Timedelta(days=1)).value_counts()
+        active = starts.sub(ends, fill_value=0).sort_index().cumsum()
+        s = (active.reindex(idx, method="ffill").fillna(0).astype(int)
+             .rename("n_windows_active").reset_index())
+        s["state"] = state
+        frames.append(s)
+    return pd.concat(frames, ignore_index=True)
+
+
+def state_fire_layer(metrics: pd.DataFrame, windows: pd.DataFrame,
+                     end=None) -> pd.DataFrame:
+    """Per-state fire hazard-load percentiles, 1979-present.
+
+    Mirrors the frozen national sub_fire recipe per tier: Tier 3
+    (1979 - 2000-10-31) scores on the per-state burn-window count only;
+    Tiers 1-2 score on the mean of the per-state hotspot-metric
+    percentiles. Every percentile is ranked within (state,
+    confidence_tier, calendar month) — the project's standard machinery —
+    so tier-3 values never rank against satellite-era values.
     Returns columns [date, state, state_fire, confidence_tier].
     """
     df = metrics[metrics["region"].isin(STATES)].copy()
     df["date"] = pd.to_datetime(df["date"])
     df = df.rename(columns={"region": "state"})
     end = pd.Timestamp(end) if end is not None else df["date"].max()
-    idx = pd.date_range(FIRE_START, end, freq="D", name="date")
-    out = _per_state_daily(df, FIRE_METRICS, STATES, idx)
 
-    out["confidence_tier"] = tier_series(out["date"])
-    keys = [out["state"], out["confidence_tier"], out["date"].dt.month]
+    # Tiers 1-2: hotspot metrics on the hotspot-era grid
+    idx12 = pd.date_range(HOTSPOT_START, end, freq="D", name="date")
+    hot = _per_state_daily(df, FIRE_METRICS, STATES, idx12)
+    hot["confidence_tier"] = tier_series(hot["date"])
+    keys = [hot["state"], hot["confidence_tier"], hot["date"].dt.month]
     pct = pd.DataFrame(
-        {m: out.groupby(keys)[m].rank(pct=True) for m in FIRE_METRICS}
+        {m: hot.groupby(keys)[m].rank(pct=True) for m in FIRE_METRICS}
     )
-    out["state_fire"] = pct.mean(axis=1)
-    return out[["date", "state", "state_fire", "confidence_tier"]]
+    hot["state_fire"] = pct.mean(axis=1)
+
+    # Tier 3: burn-window counts on the pre-hotspot grid
+    bw = state_burn_window_daily(
+        windows, start=FIRE_START, end=HOTSPOT_START - pd.Timedelta(days=1)
+    )
+    bw["confidence_tier"] = 3
+    bw["state_fire"] = bw.groupby([bw["state"], bw["date"].dt.month])[
+        "n_windows_active"
+    ].rank(pct=True)
+
+    cols = ["date", "state", "state_fire", "confidence_tier"]
+    return (
+        pd.concat([bw[cols], hot[cols]], ignore_index=True)
+        .sort_values(["state", "date"])
+        .reset_index(drop=True)
+    )
 ```
+
+(`state_burn_window_daily` is trimmed to end 2000-10-31 inside
+`state_fire_layer`, so the whole tier-3 group is a single era — no tier key
+needed in its within-(state, month) rank.)
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -632,8 +736,6 @@ def daily_summary(panel: pd.DataFrame,
     cross_hazard: >=1 state high on fire AND a DIFFERENT state high on tc
     the same day — the spatially compounding case. multi_hazard_state:
     one state high on both at once (co-located; descriptive only).
-    Fire-dependent columns are NaN before FIRE_START (no fire data, not
-    "no fire").
     """
     fire = _high_wide(panel, "fire", threshold)
     tc = _high_wide(panel, "tc", threshold)
@@ -650,11 +752,8 @@ def daily_summary(panel: pd.DataFrame,
     out["n_states_fire"] = n_f.astype(float)
     out["n_states_tc"] = n_t.astype(float)
     out["n_cells_high"] = (n_f + n_t).astype(float)
-    out["cross_hazard"] = ((n_f > 0) & (n_t > 0) & ~only_same_single).astype(object)
-    out["multi_hazard_state"] = (both > 0).astype(object)
-    pre_fire = out.index < FIRE_START
-    out.loc[pre_fire, ["n_states_fire", "n_cells_high"]] = float("nan")
-    out.loc[pre_fire, ["cross_hazard", "multi_hazard_state"]] = pd.NA
+    out["cross_hazard"] = (n_f > 0) & (n_t > 0) & ~only_same_single
+    out["multi_hazard_state"] = both > 0
     return out
 ```
 
@@ -687,9 +786,10 @@ from scripts.state_panel import (
 
 DERIVED = PATHS.derived_dir  # if config names it differently, use that name
 
-print("Building per-state fire layer ...", flush=True)
+print("Building per-state fire layer (tier 3 = burn windows) ...", flush=True)
+from scripts.fire_association import load_polygon_windows
 metrics = pd.read_parquet(DERIVED / "demand_metrics_daily.parquet")
-fire = state_fire_layer(metrics)
+fire = state_fire_layer(metrics, load_polygon_windows())
 
 print("Building tc layer (300 km, + 200/400 km sensitivity) ...", flush=True)
 tracks = load_tc_tracks()
@@ -1096,8 +1196,21 @@ def high_frame(layer, threshold, pct_col="pct"):
     return wide >= threshold
 
 
-tier1_start = pd.Timestamp(TIER_BOUNDS[1][0]).year
-fire_year_groups = None  # set below from the fire frame's actual years
+tier1_start = pd.Timestamp(TIER_BOUNDS[1][0]).year  # 2012
+tier2_start = pd.Timestamp(TIER_BOUNDS[2][0]).year  # 2000 (from 2000-11-01)
+
+
+def fire_group(y):
+    """Year -> shuffle group. Years only swap within their confidence tier
+    so data-era artefacts cannot fake a signal. Year 2000 mixes tier 3
+    (Jan-Oct) and tier 2 (Nov-Dec): it gets its own singleton group and
+    never swaps."""
+    if y < tier2_start:
+        return 3
+    if y == tier2_start:
+        return 0  # singleton: the mixed tier-boundary year stays in place
+    return 1 if y >= tier1_start else 2
+
 
 all_ratios, all_samples = [], []
 for thr in (0.95, 0.90, 0.975):
@@ -1105,7 +1218,7 @@ for thr in (0.95, 0.90, 0.975):
         fire = high_frame("fire", thr)
         tc = high_frame("tc", thr, pct_col)
         fire_cy = complete_years(fire)
-        fire_year_groups = {int(y): (1 if y >= tier1_start else 2)
+        fire_year_groups = {int(y): fire_group(int(y))
                             for y in set(fire_cy.index.year)}
         ratios, samples = excess_ratios(fire, tc, fire_year_groups,
                                         n_shuffles=1000, seed=42)
@@ -1337,7 +1450,7 @@ Per the project's standing rule this is a **replication guide teaching the user*
    /opt/anaconda3/bin/python3 -m scripts.run_compounding
    conda run -n rfigs Rscript R/compounding.R
    ```
-10. Honest limitations: fire layer is hotspot-era only (2000-11 on, Tiers 1–2 — per-state Tier-3 series don't exist); ACT inside NSW; wind-missing early TC points rank as zero; no trend claims (tier treachery, spec §6).
+10. Honest limitations: Tier-3 fire rests on polygon burn windows only (mapped-fire counts, coarser than satellite metrics — and window ends are often imputed via the extinguish > capture > ignition+21d cascade); ACT inside NSW; wind-missing early TC points rank as zero; the mixed tier-boundary year 2000 is pinned in the shuffle; no trend claims (tier treachery, spec §6).
 
 - [ ] **Step 2: Update CLAUDE.md**
 
@@ -1358,7 +1471,7 @@ git push
 ## Self-Review (done at plan-writing time)
 
 - **Spec coverage:** §1 (question/naming) → Global Constraints + module docstrings; §2 fire layer → Task 1; §2 tc layer + sensitivity radii → Tasks 2/4; §2 drfa layer → Task 3; §2 flags + summary cols (`n_states_fire`, `n_states_tc`, `n_cells_high`, `cross_hazard`, `multi_hazard_state`) → Task 4; §3 shuffle null + ratios + bands → Task 5; §3 impact check (30/14/60) → Task 5; §4 files/outputs/figures → Tasks 4–6; §4 face-validity gate → Task 4 (blocking, exit code); §5 synthetic known-answer tests + landmark TC tests + percentile-machinery reuse (`rank(pct=True)`, `tier_series`) + availability discipline → Tasks 1–5; §7 replication note → Task 7.
-- **Known deviation, stated not hidden:** spec §2 says the panel spans 1979–present; the per-state fire metrics only exist from 2000-11 (hotspot era), so fire cells are absent (NaN) through Tier 3 under the spec's own availability discipline (§5). The tc layer does span 1979–present. Flagged for the user in the plan summary.
+- **Tier-3 fire coverage (corrected 2026-07-09 after user review):** the first draft limited the fire layer to the hotspot era; the user pointed out the polygon record goes back further. Fixed: Tier 3 (1979 – 2000-10) scores on per-state counts of active polygon burn windows via `load_polygon_windows()` — the exact per-state analogue of the national recipe's `fire_windows` component. The mixed tier-boundary year 2000 is pinned (singleton shuffle group).
 - **Type consistency:** `state_fire_layer`/`state_tc_layer`/`drfa_state_layer` all return long frames with `date, state` keys consumed by `assemble_panel`; `_high_wide`/`high_frame` produce (date×state) boolean frames consumed by `excess_ratios`; `excess_ratios` returns `(ratios, samples)` consumed by the runner and R script column-for-column.
 - **Placeholder scan:** clean — every code step carries complete code; the two "match house conventions" notes (derived-dir constant name, R theme) are deliberate look-before-you-write instructions, with the fallback named.
 

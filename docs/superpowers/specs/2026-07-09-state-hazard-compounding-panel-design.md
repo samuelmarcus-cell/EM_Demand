@@ -60,15 +60,22 @@ not hidden.
 
 **Hazard layers** (the co-occurrence test runs on these and only these):
 
-- **fire** — per-state analogue of `sub_fire`, from the per-state workload
-  metrics already computed in `demand_metrics_daily` (concurrent_burden,
-  ignition_load, growth_load, frp_load per state). Each metric is
-  percentile-ranked within (state, confidence_tier, calendar month) — the
-  project's standard machinery: a 1985 SA day ranks against 1980s SA days,
-  never against satellite-era data or another state. `state_fire` = mean of
-  available metric percentiles, exactly parallel to the national recipe.
-  Border-straddling fires count in both adjacent states' series —
-  deliberate: both states' agencies respond to such fires.
+- **fire** — per-state analogue of `sub_fire`, mirroring the national
+  recipe per tier (amended 2026-07-09 after user review — the first draft
+  wrongly limited fire to the hotspot era): **Tiers 1–2** (2000-11 –) use
+  the per-state workload metrics already computed in
+  `demand_metrics_daily` (concurrent_burden, ignition_load, growth_load,
+  frp_load per state); **Tier 3** (1979 – 2000-10) uses the per-state
+  count of active polygon burn windows — the exact per-state analogue of
+  the national `fire_windows` component (the polygon archive carries a
+  state attribute). Each input is percentile-ranked within (state,
+  confidence_tier, calendar month) — the project's standard machinery: a
+  1985 SA day ranks against 1980s SA days, never against satellite-era
+  data or another state. `state_fire` = mean of available metric
+  percentiles (Tier 3: the single window-count percentile), exactly
+  parallel to the national recipe. Border-straddling fires count in both
+  adjacent states' series — deliberate: both states' agencies respond to
+  such fires.
 - **tc** — a cyclone loads a state on a day when any best-track point that
   day lies within **300 km of that state's coastline** at cyclone intensity.
   Why 300 km: approximately the gale-force radius of a large Australian TC
