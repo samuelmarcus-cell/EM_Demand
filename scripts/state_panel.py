@@ -7,8 +7,9 @@ docs/superpowers/specs/2026-07-09-state-hazard-compounding-panel-design.md
 """
 
 import pandas as pd
+import geopandas as gpd
 
-from scripts.config import COMPONENT_AVAILABILITY
+from scripts.config import COMPONENT_AVAILABILITY, PATHS
 from scripts.dli import tier_series
 
 STATES = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT"]
@@ -115,3 +116,62 @@ def state_fire_layer(metrics: pd.DataFrame, windows: pd.DataFrame,
         .sort_values(["state", "date"])
         .reset_index(drop=True)
     )
+
+
+# --- Tropical cyclone layer ---
+
+# ~gale-force radius of a large Australian TC and the scale of pre-landfall
+# preparation zones (spec §2). Sensitivity at 200/400 km, reported never tuned.
+TC_RADIUS_KM = 300.0
+TC_START = pd.Timestamp(COMPONENT_AVAILABILITY["tc_besttrack"][0])
+_LOCAL_UTC_OFFSET = pd.Timedelta(hours=10)
+
+
+def load_state_geoms(path=None) -> gpd.GeoDataFrame:
+    """State polygons in GDA94 Australian Albers (EPSG:3577, metres)."""
+    gdf = gpd.read_file(path or PATHS.aus_states_geojson)
+    return gdf.to_crs(3577)
+
+
+def tc_state_daily(tracks: pd.DataFrame, states_gdf: gpd.GeoDataFrame,
+                   radius_km: float = TC_RADIUS_KM) -> pd.DataFrame:
+    """Daily max in-range wind per state from cyclone-intensity track points.
+
+    A point loads a state when it lies within radius_km of the state's
+    polygon and the system is at cyclone intensity (BoM stage code
+    type == "T"). A point can load several states at once — deliberate:
+    both states' agencies respond. Returns rows only for (date, state)
+    with at least one in-range point: [date, state, tc_max_wind].
+    """
+    t = tracks[tracks["type"] == "T"].copy()
+    t["date"] = (t["datetime_utc"].dt.tz_localize(None) + _LOCAL_UTC_OFFSET).dt.normalize()
+    pts = gpd.GeoDataFrame(
+        t[["date", "max_wind_spd"]],
+        geometry=gpd.points_from_xy(t["lon"], t["lat"], crs=4326),
+    ).to_crs(3577)
+    hits = gpd.sjoin(
+        pts, states_gdf[["state", "geometry"]],
+        predicate="dwithin", distance=radius_km * 1000.0,
+    )
+    return (
+        hits.groupby(["date", "state"], as_index=False)
+        .agg(tc_max_wind=("max_wind_spd", "max"))
+    )
+
+
+def state_tc_layer(tc_daily: pd.DataFrame, start=None, end=None) -> pd.DataFrame:
+    """Per-state tc percentiles: within (state, calendar month) rank of the
+    daily max in-range wind, parallel to the national max-with-severity
+    logic. Days with no in-range cyclone (and in-range points with
+    unrecorded wind) rank as 0 wind, so they can never fake severity.
+    No tier dimension — the best-track record has one era (spec §2).
+    Returns [date, state, state_tc, tc_max_wind].
+    """
+    start = pd.Timestamp(start) if start is not None else TC_START
+    end = pd.Timestamp(end) if end is not None else tc_daily["date"].max()
+    idx = pd.date_range(start, end, freq="D", name="date")
+    out = _per_state_daily(tc_daily, ["tc_max_wind"], STATES, idx)
+    out["state_tc"] = out.groupby([out["state"], out["date"].dt.month])[
+        "tc_max_wind"
+    ].rank(pct=True)
+    return out[["date", "state", "state_tc", "tc_max_wind"]]

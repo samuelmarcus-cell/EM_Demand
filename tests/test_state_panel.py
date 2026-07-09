@@ -97,3 +97,80 @@ def test_fire_layer_tier3_scores_on_burn_windows():
     # tier-3 rows never score on hotspot metrics, tier-1/2 rows never on windows
     t12 = out[(out.state == "NSW") & (out.confidence_tier != 3)]
     assert t12["date"].min() == pd.Timestamp("2000-11-01")
+
+
+# --- Tropical cyclone tests ---
+
+from scripts.state_panel import load_state_geoms, state_tc_layer, tc_state_daily
+
+
+def _track_points(rows):
+    """rows: list of (utc_timestamp_str, lat, lon, wind, type)."""
+    return pd.DataFrame(
+        [{"tc_id": "AU000000", "name": "Test",
+          "datetime_utc": pd.Timestamp(ts, tz="UTC"),
+          "lat": lat, "lon": lon, "central_pres": 980.0,
+          "max_wind_spd": wind, "type": typ}
+         for ts, lat, lon, wind, typ in rows]
+    )
+
+
+@pytest.fixture(scope="module")
+def states_gdf():
+    return load_state_geoms()
+
+
+def test_tc_point_off_qld_coast_loads_qld_only(states_gdf):
+    # ~100 km east of Townsville: inside 300 km of QLD, far from all others
+    tracks = _track_points([("2011-02-02 12:00", -19.0, 148.0, 60.0, "T")])
+    out = tc_state_daily(tracks, states_gdf)
+    assert set(out["state"]) == {"QLD"}
+    assert out["tc_max_wind"].iloc[0] == 60.0
+
+
+def test_tc_point_mid_tasman_loads_nothing(states_gdf):
+    tracks = _track_points([("2011-02-02 12:00", -35.0, 160.0, 60.0, "T")])
+    out = tc_state_daily(tracks, states_gdf)
+    assert out.empty
+
+
+def test_tc_border_point_loads_both_states(states_gdf):
+    # Just off the NT/WA border coast (~ -14.5, 129.0): within 300 km of both
+    tracks = _track_points([("2011-02-02 12:00", -14.0, 129.0, 40.0, "T")])
+    out = tc_state_daily(tracks, states_gdf)
+    assert {"NT", "WA"} <= set(out["state"])
+
+
+def test_non_cyclone_intensity_points_excluded(states_gdf):
+    tracks = _track_points([("2011-02-02 12:00", -19.0, 148.0, 60.0, "L")])
+    out = tc_state_daily(tracks, states_gdf)
+    assert out.empty
+
+
+def test_state_tc_layer_full_grid_and_percentiles():
+    daily = pd.DataFrame({
+        "date": pd.to_datetime(["2011-02-02"]),
+        "state": ["QLD"], "tc_max_wind": [60.0],
+    })
+    out = state_tc_layer(daily, start="2011-01-01", end="2011-02-28")
+    assert len(out) == 59 * len(STATES)
+    qld_feb2 = out[(out.state == "QLD") & (out.date == "2011-02-02")]
+    # only nonzero wind in the (QLD, Feb) group -> top rank
+    assert qld_feb2["state_tc"].iloc[0] == 1.0
+    # a state with no TC ever must never reach the 0.95 flag
+    assert (out[out.state == "TAS"]["state_tc"] < 0.95).all()
+
+
+# --- real-data landmark attribution (spec §5; loads the BoM best-track CSV) ---
+
+@pytest.mark.parametrize("day,name_year,state,wind_floor", [
+    ("2011-02-03", "Yasi 2011", "QLD", 30.0),
+    ("1974-12-25", "Tracy 1974", "NT", 30.0),
+    ("1999-03-22", "Vance 1999", "WA", 30.0),
+])
+def test_landmark_tc_attribution(states_gdf, day, name_year, state, wind_floor):
+    from scripts.loaders.tc_besttrack import load_tc_tracks
+    out = tc_state_daily(load_tc_tracks(), states_gdf)
+    row = out[(out["date"] == day) & (out["state"] == state)]
+    assert not row.empty, f"{name_year} did not load {state} on {day}"
+    assert row["tc_max_wind"].iloc[0] >= wind_floor
