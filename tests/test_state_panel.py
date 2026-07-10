@@ -6,6 +6,8 @@ from scripts.state_panel import (
     DRFA_START,
     FIRE_METRICS,
     STATES,
+    assemble_panel,
+    daily_summary,
     drfa_state_layer,
     load_state_geoms,
     state_burn_window_daily,
@@ -224,3 +226,66 @@ def test_drfa_layer_starts_at_availability_window():
     loc = _locations([("2011-01-10", "Queensland", "LGA1")])
     out = drfa_state_layer(loc, end="2011-01-31")
     assert out.date.min() == DRFA_START
+
+
+# --- Panel assembly and daily summary tests ---
+
+
+def _mini_panel(fire_high, tc_high):
+    """Build a panel with given high states on one day (2015-02-01).
+
+    fire_high/tc_high: sets of states given pct 0.99; all others 0.10.
+    """
+    date = pd.Timestamp("2015-02-01")
+    fire = pd.DataFrame({
+        "date": date, "state": STATES,
+        "state_fire": [0.99 if s in fire_high else 0.10 for s in STATES],
+        "confidence_tier": 1,
+    })
+    tc = pd.DataFrame({
+        "date": date, "state": STATES,
+        "state_tc": [0.99 if s in tc_high else 0.10 for s in STATES],
+        "tc_max_wind": 0.0,
+    })
+    drfa = pd.DataFrame({
+        "date": date, "state": STATES, "drfa_new_lgas": 0,
+        "state_drfa": [0.99] * len(STATES),  # high drfa must NOT enter flags
+    })
+    return assemble_panel(fire, tc, drfa)
+
+
+def test_summary_counts_and_cross_hazard_true():
+    # NSW high fire, QLD high tc, different states -> cross_hazard
+    s = daily_summary(_mini_panel({"NSW"}, {"QLD"})).iloc[0]
+    assert s["n_states_fire"] == 1 and s["n_states_tc"] == 1
+    assert s["n_cells_high"] == 2
+    assert bool(s["cross_hazard"]) is True
+    assert bool(s["multi_hazard_state"]) is False
+
+
+def test_same_state_both_hazards_is_multi_hazard_not_cross():
+    s = daily_summary(_mini_panel({"QLD"}, {"QLD"})).iloc[0]
+    assert bool(s["cross_hazard"]) is False
+    assert bool(s["multi_hazard_state"]) is True
+
+
+def test_same_state_plus_another_is_cross():
+    # fire {QLD}, tc {QLD, WA}: WA differs from QLD -> cross
+    s = daily_summary(_mini_panel({"QLD"}, {"QLD", "WA"})).iloc[0]
+    assert bool(s["cross_hazard"]) is True
+    assert bool(s["multi_hazard_state"]) is True
+
+
+def test_drfa_never_enters_flags():
+    # nothing high on hazards, drfa pct 0.99 everywhere
+    s = daily_summary(_mini_panel(set(), set())).iloc[0]
+    assert s["n_cells_high"] == 0
+    assert bool(s["cross_hazard"]) is False
+
+
+def test_threshold_sensitivity_parameter():
+    # pct 0.92 highs: flagged at 0.90, not at 0.95
+    panel = _mini_panel({"NSW", "VIC"}, set())
+    panel.loc[(panel.layer == "fire") & panel.state.isin(["NSW", "VIC"]), "pct"] = 0.92
+    assert daily_summary(panel, threshold=0.90).iloc[0]["n_states_fire"] == 2
+    assert daily_summary(panel, threshold=0.95).iloc[0]["n_states_fire"] == 0

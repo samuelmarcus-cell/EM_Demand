@@ -219,3 +219,68 @@ def drfa_state_layer(locations: pd.DataFrame, end=None) -> pd.DataFrame:
         "drfa_new_lgas"
     ].rank(pct=True)
     return out[["date", "state", "drfa_new_lgas", "state_drfa"]]
+
+
+# --- Panel assembly and daily summary ---
+
+HAZARD_LAYERS = ["fire", "tc"]  # the co-occurrence test runs on these ONLY
+HIGH_LOAD_THRESHOLD = 0.95      # project-wide within-group 95th convention
+
+
+def assemble_panel(fire: pd.DataFrame, tc: pd.DataFrame,
+                   drfa: pd.DataFrame) -> pd.DataFrame:
+    """Long panel: one row per (date, state, layer).
+
+    Rows exist only inside each layer's availability window — an absent
+    row IS the NaN cell (availability discipline). fire and tc are hazard
+    layers; drfa is the impact layer.
+    """
+    f = fire.rename(columns={"state_fire": "pct"})
+    f["layer"] = "fire"
+    t = tc.rename(columns={"state_tc": "pct"})
+    t["layer"] = "tc"
+    d = drfa.rename(columns={"state_drfa": "pct"})
+    d["layer"] = "drfa"
+    cols = ["date", "state", "layer", "pct", "confidence_tier",
+            "tc_max_wind", "drfa_new_lgas"]
+    panel = pd.concat([f, t, d], ignore_index=True, sort=False)
+    for c in cols:
+        if c not in panel.columns:
+            panel[c] = pd.NA
+    return panel[cols]
+
+
+def _high_wide(panel: pd.DataFrame, layer: str, threshold: float) -> pd.DataFrame:
+    """(date × state) boolean frame of high-hazard-load flags for one layer."""
+    sub = panel[panel["layer"] == layer]
+    wide = sub.pivot_table(index="date", columns="state", values="pct",
+                           aggfunc="first")
+    return (wide >= threshold).reindex(columns=STATES, fill_value=False)
+
+
+def daily_summary(panel: pd.DataFrame,
+                  threshold: float = HIGH_LOAD_THRESHOLD) -> pd.DataFrame:
+    """Daily summary of high-hazard-load flags (hazard layers only).
+
+    cross_hazard: >=1 state high on fire AND a DIFFERENT state high on tc
+    the same day — the spatially compounding case. multi_hazard_state:
+    one state high on both at once (co-located; descriptive only).
+    """
+    fire = _high_wide(panel, "fire", threshold)
+    tc = _high_wide(panel, "tc", threshold)
+    idx = fire.index.union(tc.index)
+    fire = fire.reindex(idx, fill_value=False)
+    tc = tc.reindex(idx, fill_value=False)
+
+    n_f = fire.sum(axis=1)
+    n_t = tc.sum(axis=1)
+    both = (fire & tc).sum(axis=1)
+    only_same_single = (n_f == 1) & (n_t == 1) & (both == 1)
+
+    out = pd.DataFrame(index=idx)
+    out["n_states_fire"] = n_f.astype(float)
+    out["n_states_tc"] = n_t.astype(float)
+    out["n_cells_high"] = (n_f + n_t).astype(float)
+    out["cross_hazard"] = (n_f > 0) & (n_t > 0) & ~only_same_single
+    out["multi_hazard_state"] = both > 0
+    return out
