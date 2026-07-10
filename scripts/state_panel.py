@@ -11,6 +11,7 @@ import geopandas as gpd
 
 from scripts.config import COMPONENT_AVAILABILITY, PATHS
 from scripts.dli import tier_series
+from scripts.loaders.drfa_activations import load_drfa_locations
 
 STATES = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT"]
 FIRE_METRICS = ["concurrent_burden", "ignition_load", "growth_load", "frp_load"]
@@ -175,3 +176,46 @@ def state_tc_layer(tc_daily: pd.DataFrame, start=None, end=None) -> pd.DataFrame
         "tc_max_wind"
     ].rank(pct=True)
     return out[["date", "state", "state_tc", "tc_max_wind"]]
+
+
+# --- DRFA impact layer ---
+
+DRFA_START = pd.Timestamp(COMPONENT_AVAILABILITY["drfa"][0])
+
+_STATE_FULL_TO_ABBREV = {
+    "New South Wales": "NSW",
+    "Australian Capital Territory": "NSW",  # ACT folds into NSW (spec §2)
+    "Victoria": "VIC",
+    "Queensland": "QLD",
+    "South Australia": "SA",
+    "Western Australia": "WA",
+    "Tasmania": "TAS",
+    "Northern Territory": "NT",
+}
+
+
+def drfa_state_layer(locations: pd.DataFrame, end=None) -> pd.DataFrame:
+    """Per-state IMPACT layer: count of the state's LGAs newly under DRFA
+    activation that day ("newly" = the event's disaster_start_date),
+    percentile within (state, calendar month). DRFA costs actualised
+    impact — exposure and vulnerability baked in — so this layer never
+    sits on the hazard axis and never enters the co-occurrence flags
+    (spec §2); it feeds only the §3 impact check. Available 2006- only.
+    Returns [date, state, drfa_new_lgas, state_drfa].
+    """
+    loc = locations.copy()
+    loc["state"] = loc["STATE"].map(_STATE_FULL_TO_ABBREV)
+    loc["date"] = pd.to_datetime(loc["disaster_start_date"])
+    loc = loc[loc["date"] >= DRFA_START]
+    daily = (
+        loc.groupby(["date", "state"], as_index=False)
+        .agg(drfa_new_lgas=("Location_code", "nunique"))
+    )
+    end = pd.Timestamp(end) if end is not None else daily["date"].max()
+    idx = pd.date_range(DRFA_START, end, freq="D", name="date")
+    out = _per_state_daily(daily, ["drfa_new_lgas"], STATES, idx)
+    out["drfa_new_lgas"] = out["drfa_new_lgas"].astype(int)
+    out["state_drfa"] = out.groupby([out["state"], out["date"].dt.month])[
+        "drfa_new_lgas"
+    ].rank(pct=True)
+    return out[["date", "state", "drfa_new_lgas", "state_drfa"]]

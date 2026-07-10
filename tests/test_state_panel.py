@@ -174,3 +174,48 @@ def test_landmark_tc_attribution(states_gdf, day, name_year, state, wind_floor):
     row = out[(out["date"] == day) & (out["state"] == state)]
     assert not row.empty, f"{name_year} did not load {state} on {day}"
     assert row["tc_max_wind"].iloc[0] >= wind_floor
+
+
+# --- DRFA impact layer tests ---
+
+from scripts.state_panel import DRFA_START, drfa_state_layer
+
+
+def _locations(rows):
+    """rows: list of (start_date, full_state_name, location_code)."""
+    return pd.DataFrame(
+        [{"disaster_start_date": pd.Timestamp(d), "STATE": st, "Location_code": lc,
+          "agrn": 1, "event_name": "x", "hazard_type": "Flood"}
+         for d, st, lc in rows]
+    )
+
+
+def test_drfa_counts_unique_new_lgas_per_state_day():
+    loc = _locations([
+        ("2011-01-10", "Queensland", "LGA1"),
+        ("2011-01-10", "Queensland", "LGA2"),
+        ("2011-01-10", "Queensland", "LGA2"),   # duplicate LGA -> counted once
+        ("2011-01-10", "New South Wales", "LGA9"),
+    ])
+    out = drfa_state_layer(loc, end="2011-01-31")
+    day = out[out.date == "2011-01-10"].set_index("state")
+    assert day.loc["QLD", "drfa_new_lgas"] == 2
+    assert day.loc["NSW", "drfa_new_lgas"] == 1
+    assert day.loc["VIC", "drfa_new_lgas"] == 0
+
+
+def test_drfa_act_folds_into_nsw():
+    loc = _locations([
+        ("2011-01-10", "Australian Capital Territory", "LGA_ACT"),
+        ("2011-01-10", "New South Wales", "LGA_NSW"),
+    ])
+    out = drfa_state_layer(loc, end="2011-01-31")
+    day = out[out.date == "2011-01-10"].set_index("state")
+    assert day.loc["NSW", "drfa_new_lgas"] == 2
+    assert "ACT" not in out["state"].values
+
+
+def test_drfa_layer_starts_at_availability_window():
+    loc = _locations([("2011-01-10", "Queensland", "LGA1")])
+    out = drfa_state_layer(loc, end="2011-01-31")
+    assert out.date.min() == DRFA_START
