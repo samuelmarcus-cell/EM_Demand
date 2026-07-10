@@ -2,7 +2,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from scripts.state_panel import FIRE_METRICS, STATES, state_fire_layer
+from scripts.state_panel import (
+    DRFA_START,
+    FIRE_METRICS,
+    STATES,
+    drfa_state_layer,
+    load_state_geoms,
+    state_burn_window_daily,
+    state_fire_layer,
+    state_tc_layer,
+    tc_state_daily,
+)
 
 
 def _synthetic_metrics(states, dates, scale):
@@ -66,7 +76,6 @@ def _windows(rows):
 
 
 def test_state_burn_window_daily_counts_and_normalises_states():
-    from scripts.state_panel import state_burn_window_daily
     win = _windows([
         ("1994-01-05", "1994-01-10", "NSW (New South Wales)"),
         ("1994-01-08", "1994-01-12", "NSW (New South Wales)"),
@@ -100,8 +109,6 @@ def test_fire_layer_tier3_scores_on_burn_windows():
 
 
 # --- Tropical cyclone tests ---
-
-from scripts.state_panel import load_state_geoms, state_tc_layer, tc_state_daily
 
 
 def _track_points(rows):
@@ -177,8 +184,6 @@ def test_landmark_tc_attribution(states_gdf, day, name_year, state, wind_floor):
 
 
 # --- DRFA impact layer tests ---
-
-from scripts.state_panel import DRFA_START, drfa_state_layer
 
 
 def _locations(rows):
