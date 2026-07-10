@@ -43,7 +43,13 @@ panel = assemble_panel(fire, tc, drfa)
 for r in (200, 400):
     panel[f"pct_r{r}"] = pd.NA
     tc_mask = panel["layer"] == "tc"
-    panel.loc[tc_mask, f"pct_r{r}"] = tc[f"state_tc_r{r}"].values
+    # Key TC radius sensitivity by (date, state) to ensure correct alignment
+    tc_lookup = tc.set_index(["date", "state"])[f"state_tc_r{r}"]
+    panel_tc_idx = pd.MultiIndex.from_arrays(
+        [panel.loc[tc_mask, "date"], panel.loc[tc_mask, "state"]],
+        names=["date", "state"]
+    )
+    panel.loc[tc_mask, f"pct_r{r}"] = tc_lookup.loc[panel_tc_idx].values
 
 summary = daily_summary(panel)
 panel.to_parquet(DATA_DERIVED / "state_hazard_panel.parquet")

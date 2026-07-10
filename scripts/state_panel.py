@@ -265,6 +265,9 @@ def daily_summary(panel: pd.DataFrame,
     cross_hazard: >=1 state high on fire AND a DIFFERENT state high on tc
     the same day — the spatially compounding case. multi_hazard_state:
     one state high on both at once (co-located; descriptive only).
+    Fire-dependent columns (n_states_fire, n_cells_high, cross_hazard,
+    multi_hazard_state) are NaN before FIRE_START; they cannot be asserted
+    without fire data.
     """
     fire = _high_wide(panel, "fire", threshold)
     tc = _high_wide(panel, "tc", threshold)
@@ -281,6 +284,16 @@ def daily_summary(panel: pd.DataFrame,
     out["n_states_fire"] = n_f.astype(float)
     out["n_states_tc"] = n_t.astype(float)
     out["n_cells_high"] = (n_f + n_t).astype(float)
-    out["cross_hazard"] = (n_f > 0) & (n_t > 0) & ~only_same_single
-    out["multi_hazard_state"] = both > 0
+    # Use nullable boolean dtype to allow pd.NA assignment
+    out["cross_hazard"] = ((n_f > 0) & (n_t > 0) & ~only_same_single).astype("boolean")
+    out["multi_hazard_state"] = (both > 0).astype("boolean")
+
+    # Mask fire-dependent columns before FIRE_START (defensive; required if
+    # panel has tc rows earlier than fire data availability)
+    before_fire_start = idx < FIRE_START
+    out.loc[before_fire_start, "n_states_fire"] = pd.NA
+    out.loc[before_fire_start, "n_cells_high"] = pd.NA
+    out.loc[before_fire_start, "cross_hazard"] = pd.NA
+    out.loc[before_fire_start, "multi_hazard_state"] = pd.NA
+
     return out

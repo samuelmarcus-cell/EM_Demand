@@ -5,6 +5,7 @@ import pytest
 from scripts.state_panel import (
     DRFA_START,
     FIRE_METRICS,
+    FIRE_START,
     STATES,
     assemble_panel,
     daily_summary,
@@ -289,3 +290,39 @@ def test_threshold_sensitivity_parameter():
     panel.loc[(panel.layer == "fire") & panel.state.isin(["NSW", "VIC"]), "pct"] = 0.92
     assert daily_summary(panel, threshold=0.90).iloc[0]["n_states_fire"] == 2
     assert daily_summary(panel, threshold=0.95).iloc[0]["n_states_fire"] == 0
+
+
+def test_fire_dependent_columns_nan_before_fire_start():
+    # Build a synthetic panel with one tc row dated 1978-06-01 (before FIRE_START)
+    # and one normal fire row dated 2019-01-01. Verify that the 1978 row has
+    # fire-dependent columns as NaN and the 2019 row is unaffected.
+    date_before = pd.Timestamp("1978-06-01")
+    date_after = pd.Timestamp("2019-01-01")
+
+    # Create a minimal panel: one tc row (1978), one fire+tc row (2019)
+    panel = pd.DataFrame({
+        "date": [date_before, date_after, date_after],
+        "state": ["QLD", "NSW", "QLD"],
+        "layer": ["tc", "fire", "tc"],
+        "pct": [0.99, 0.99, 0.99],
+        "confidence_tier": [pd.NA, 1, pd.NA],
+        "tc_max_wind": [50.0, pd.NA, 50.0],
+        "drfa_new_lgas": [pd.NA, 0, pd.NA],
+    })
+
+    summary = daily_summary(panel)
+
+    # Row for 1978-06-01: fire-dependent columns should be NaN
+    row_1978 = summary.loc[date_before]
+    assert pd.isna(row_1978["n_states_fire"])
+    assert pd.isna(row_1978["n_cells_high"])
+    assert pd.isna(row_1978["cross_hazard"])
+    assert pd.isna(row_1978["multi_hazard_state"])
+
+    # Row for 2019-01-01: fire-dependent columns should be computed normally
+    row_2019 = summary.loc[date_after]
+    assert row_2019["n_states_fire"] == 1.0
+    assert row_2019["n_states_tc"] == 1.0
+    assert row_2019["n_cells_high"] == 2.0
+    assert bool(row_2019["cross_hazard"]) is True
+    assert bool(row_2019["multi_hazard_state"]) is False
