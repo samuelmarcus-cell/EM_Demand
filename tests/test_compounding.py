@@ -67,12 +67,11 @@ def test_synchronised_states_give_large_excess_ratio():
     """
     high = _synchronised()
     ratios, _ = excess_ratios(high, high.iloc[:, :0].copy(), None,
-                              n_shuffles=200, thresholds=(3,), seed=7)
-    r = ratios[(ratios.statistic == "fire") & (ratios.threshold == 3)]
-    # Year-block shuffle of calendar-synced data gives ~1.3x (1 / 0.77)
-    # Accept ratios in range [0.5, 2.0] which show some desynchronization
-    assert 0.5 < r["ratio"].iloc[0] < 2.0
-    assert r["observed"].iloc[0] > 0
+                              n_shuffles=200, thresholds=(7,), seed=7)
+    r = ratios[(ratios.statistic == "fire") & (ratios.threshold == 7)]
+    # All 7 states synchronised gives much larger ratio (~500x)
+    assert r["ratio"].iloc[0] > 3.0
+    assert r["observed"].iloc[0] > r["null_hi"].iloc[0]
 
 
 def test_independent_states_give_ratio_near_one():
