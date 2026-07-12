@@ -82,10 +82,11 @@ def state_fire_layer(metrics: pd.DataFrame, windows: pd.DataFrame,
     Mirrors the frozen national sub_fire recipe per tier: Tier 3
     (1979 - 2000-10-31) scores on the per-state burn-window count only;
     Tiers 1-2 score on the mean of the per-state hotspot-metric
-    percentiles. Every percentile is ranked within (state,
-    confidence_tier, calendar month) — the project's standard machinery —
-    so tier-3 values never rank against satellite-era values.
-    Returns columns [date, state, state_fire, confidence_tier].
+    percentiles, re-ranked within group so the final score is itself a
+    percentile. Every ranking is within (state, confidence_tier, calendar
+    month) — the project's standard machinery — so tier-3 values never
+    rank against satellite-era values, and a >=0.95 flag means "top 5% of
+    days" in every tier. Returns [date, state, state_fire, confidence_tier].
     """
     df = metrics[metrics["region"].isin(STATES)].copy()
     df["date"] = pd.to_datetime(df["date"])
@@ -101,6 +102,16 @@ def state_fire_layer(metrics: pd.DataFrame, windows: pd.DataFrame,
         {m: hot.groupby(keys)[m].rank(pct=True) for m in FIRE_METRICS}
     )
     hot["state_fire"] = pct.mean(axis=1)
+    # Re-rank the combined score so state_fire is itself a within-group
+    # percentile. A mean of four percentiles rarely clears 0.95 (all four
+    # metrics must spike at once), which flagged satellite-era days at
+    # roughly half the tier-3 rate and hid Black Summer from the
+    # descriptive outputs (amendment 2026-07-10, user-approved). Ranking
+    # the mean makes the >=0.95 flag mean "top 5% of days" in every tier —
+    # the project-wide high-demand-day convention. Tier 3 needs no re-rank:
+    # its single input is already a percentile, and ranking a percentile
+    # within the same group is the identity.
+    hot["state_fire"] = hot.groupby(keys)["state_fire"].rank(pct=True)
 
     # Tier 3: burn-window counts on the pre-hotspot grid
     bw = state_burn_window_daily(

@@ -73,7 +73,14 @@ not hidden.
   1985 SA day ranks against 1980s SA days, never against satellite-era
   data or another state. `state_fire` = mean of available metric
   percentiles (Tier 3: the single window-count percentile), exactly
-  parallel to the national recipe. Border-straddling fires count in both
+  parallel to the national recipe — **then re-ranked within (state, tier,
+  month) so the score is itself a percentile** (amended 2026-07-10,
+  user-approved: the raw mean of four percentiles cleared the 0.95 flag on
+  only ~2.6% of satellite-era days vs ~4.4% of tier-3 days, holding the
+  modern era to a stricter bar and hiding Black Summer from the
+  descriptive outputs; the re-rank restores the project-wide
+  within-group-95th convention — a definitional fix locked in before the
+  post-fix ratios were seen, not tuning). Border-straddling fires count in both
   adjacent states' series — deliberate: both states' agencies respond to
   such fires.
 - **tc** — a cyclone loads a state on a day when any best-track point that

@@ -252,6 +252,12 @@ def state_fire_layer(metrics: pd.DataFrame, windows: pd.DataFrame,
         {m: hot.groupby(keys)[m].rank(pct=True) for m in FIRE_METRICS}
     )
     hot["state_fire"] = pct.mean(axis=1)
+    # Amendment 2026-07-10 (user-approved, applied during execution): the
+    # combined score is re-ranked within (state, tier, month) so it is
+    # itself a percentile — the raw mean under-flagged the satellite era
+    # (~2.6% vs tier 3's ~4.4% at the 0.95 flag) and hid Black Summer
+    # from the descriptive outputs. See spec §2.
+    hot["state_fire"] = hot.groupby(keys)["state_fire"].rank(pct=True)
 
     # Tier 3: burn-window counts on the pre-hotspot grid
     bw = state_burn_window_daily(

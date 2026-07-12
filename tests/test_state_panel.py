@@ -66,6 +66,32 @@ def test_fire_layer_covers_all_states_and_carries_tier():
     assert out.date.min() == pd.Timestamp("1979-01-01")
 
 
+def test_fire_score_is_true_percentile_in_hotspot_era():
+    # The combined tier-1/2 score must itself be a within-(state, tier,
+    # month) percentile: for n distinct-activity days the sorted scores
+    # are exactly 1/n, 2/n, ..., 1.0. A raw mean of four percentiles
+    # would fail this (its maximum can be 1.0 but its spacing cannot be
+    # uniform when metrics disagree), which under-flagged the satellite
+    # era at the 0.95 threshold (amendment 2026-07-10).
+    dates = pd.date_range("2015-01-01", "2015-01-20", freq="D")
+    rng = np.random.default_rng(1)
+    rows = [{"date": d, "region": "NSW",
+             **{m: float(v) for m, v in zip(FIRE_METRICS, 1 + rng.random(4))}}
+            for d in dates]
+    df = pd.DataFrame(rows)
+    out = state_fire_layer(df, _windows([]), end="2015-01-20")
+    # the ranking group is (NSW, tier 1, January) across ALL tier-1 years
+    # in the grid; the flag rate at 0.95 must be ~5% (ties in rank-sums
+    # can nudge it slightly), and the best day must score exactly 1.0
+    grp = out[(out.state == "NSW") & (out.confidence_tier == 1)
+              & (out.date.dt.month == 1)]
+    rate = (grp["state_fire"] >= 0.95).mean()
+    assert 0.03 <= rate <= 0.07
+    assert grp["state_fire"].max() == 1.0
+    # a raw mean of four disagreeing percentiles fails both: its top days
+    # cluster below 1.0 and far fewer than 5% of days clear 0.95
+
+
 def _windows(rows):
     """rows: list of (window_start, window_end, raw_state_label)."""
     df = pd.DataFrame(
