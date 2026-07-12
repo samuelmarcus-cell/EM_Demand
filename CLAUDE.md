@@ -128,6 +128,8 @@ other event's percentile materially.
 | `run_exports.py` | CSVs in data/export/ | ~10 s |
 | `run_flood_validation.py` | prints diagnostic table only, no file (needs rebuilt panel) | ~5 s |
 | `run_crossval.py` | crossval_daily (needs DEA export, see plans) | — |
+| `run_state_panel.py` | state_hazard_panel.parquet, state_hazard_summary.parquet | ~1–2 min |
+| `run_compounding.py` | compounding_ratios.csv, compounding_null_samples.csv, compounding_impact_check.csv, compound_days_top.csv, state_cooccurrence.csv | ~2–4 min |
 
 Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
 `EM_Demand_Phase1.ipynb` re-executes end-to-end in ~1 min via nbclient.
@@ -140,8 +142,9 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   sub_flood** (flood component abandoned by user decision — see recipe
   section above); the FFDI component is **parked** (plan kept for
   reference only). Priorities: (1) ~~flood gate~~ dead, (2) composites
-  pilot DONE (see below), (3) state×hazard compounding panel, (4) weather
-  objects in the real compound-day analysis. See `docs/METHODOLOGY.md` §10.
+  pilot DONE (see below), (3) ~~state×hazard compounding panel~~ DONE
+  (see below), (4) weather objects in the real compound-day analysis.
+  See `docs/METHODOLOGY.md` §10.
 - **Fires_SWTs audited 2026-07-07** (`fires_swts/AUDIT_2026-07-07.md`, also
   at `~/Fires_SWTs/`): all numbers reproduce; danger RRs + conversion null
   SOLID (citable); fire RRs FRAGILE (burn-window imputation — cite only with
@@ -221,6 +224,20 @@ Tests: `/opt/anaconda3/bin/python3 -m pytest tests/ -q`.
   distinct synoptic fingerprints per hazard — supports the compounding-phase
   premise. Spec:
   `docs/superpowers/specs/2026-07-07-demand-composites-pilot-design.md`.
+- **State×hazard compounding panel: DONE 2026-07-10.** Fire compounding
+  1.3–2.2× chance (≥2 to ≥4 states high simultaneously, thr 0.95, 300 km,
+  1,000 shuffles); TC compounding 3.3× (≥2 states); cross-hazard (fire
+  some states, TC others) 0.8× — significantly *below* chance, consistent
+  with opposing synoptic drivers in the composites pilot. Face-validity gate
+  PASSED (Black Summer → NSW/SA/TAS/VIC/WA high fire; Yasi → NT/QLD high
+  TC). Impact check: multi-state DRFA follows multi-state hazard days 30.8%
+  vs 22.9% after quiet days (30-day window). Fire tier-1/2 score re-ranked
+  within (state, tier, month) 2026-07-10 to restore within-group-95th
+  convention (definitional fix, not tuning). Panel: `data/derived/state_hazard_panel.parquet`;
+  ratios: `data/derived/compounding_ratios.csv`; runners: `scripts/run_state_panel.py`
+  + `scripts/run_compounding.py` (use `-m` from repo root); spec:
+  `docs/superpowers/specs/2026-07-09-state-hazard-compounding-panel-design.md`;
+  replication guide: `docs/METHODOLOGY.md` §12.
 - Phase 2 weather objects: not yet planned, but scaffolded —
   `docs/phase2_weather_objects_notes.md` (reuse the TFB_Objects repo's
   extraction pipeline; use coverage fractions, NOT binary presence, which

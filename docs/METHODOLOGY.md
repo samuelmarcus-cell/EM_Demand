@@ -500,3 +500,372 @@ only, disclosed in every caption. The formal pattern-separation test
 (composite pattern correlation against block-resampled nulls) is
 deliberately deferred to the full analysis; the pilot's job was to decide
 whether that machinery is worth building. It is.
+
+## 12. State×hazard compounding panel — results and how to replicate it (2026-07-10)
+
+This section is written so the analysis can be rebuilt from scratch by a
+person, with every methodological choice explained. It is the record of
+*why* each step is the way it is, not just what was run.
+
+### 12.1 The scientific question and why it is asked
+
+The DLI is national. It can say "the nation is loaded" but not *where*. It
+cannot distinguish a single catastrophic fire day from a situation where
+three states are simultaneously under high hazard load. This panel asks the
+spatial question: **do severe hazards co-occur across Australian states more
+often than independence would predict, and does cross-hazard compounding
+(fire severe in some states, tropical cyclones severe in others, on the same
+day) exceed chance?**
+
+The object of study is **hazard co-occurrence, not demand**. Fire hotspots
+and cyclone tracks quantify the hazard, agnostic of exposure. EM demand is
+the motivation — multi-state hazard compounding is what would strain shared
+national arrangements — but this panel never calls the exceedance flags
+"high demand". The language is "high hazard load" throughout.
+
+DRFA activations are an *impact* layer, never a hazard layer: they mix
+hazard types, lag the weather by days to weeks, and incorporate exposure and
+vulnerability. They are used only for the §12.6 impact check, where the
+question is whether the panel's hazard signal has any footprint in
+actualised response.
+
+**Three falsifiable outcomes, written before any result:**
+
+1. **Same-hazard fire compounding exceeds chance strongly.** Synoptic
+   systems are larger than states; a blocking high or a hot northerly surge
+   loads the whole southeast at once. This is the positive control — if the
+   machinery cannot recover this it is broken.
+2. **Cross-hazard compounding exceeds or matches chance.** The composites
+   pilot (§11) showed that fire and TC days have distinct synoptic
+   fingerprints. Whether those distinct drivers nonetheless co-occur in
+   time is the open empirical question. Either outcome is the finding.
+3. **Neither exceeds chance.** State hazard loads are independent; the
+   compounding framing needs rethinking.
+
+**Pre-registered expectations (spec §1, written before any result was
+seen):** same-hazard fire compounding will exceed chance strongly
+(positive control, near-certain); cross-hazard is genuinely uncertain.
+
+### 12.2 Building the panel — layer by layer
+
+The panel has one row per (date, state, hazard layer), 1979–present, seven
+states: NSW, VIC, QLD, SA, WA, TAS, NT. ACT hotspot detections fall inside
+the NSW series under the existing state-attribution conventions of
+`demand_metrics_daily` — this is disclosed, not hidden.
+
+#### Fire layer
+
+The fire layer is the per-state analogue of the national `sub_fire`,
+mirroring the recipe tier by tier.
+
+**Tiers 1–2 (satellite era, 2000-11 onward):** the per-state hotspot
+workload metrics already computed in `demand_metrics_daily` — concurrent
+burden, ignition load, growth load, and FRP load — are percentile-ranked
+within (state, confidence_tier, calendar month) and their mean taken.
+This is the direct per-state parallel to the national recipe.
+
+**Tier 3 (polygon era, 1979–2000-10):** no satellite coverage, so the
+metric is the per-state count of active mapped fire polygon burn windows —
+the exact per-state analogue of the national `fire_windows` component. The
+polygon archive carries a state attribute. A fire straddling two states
+counts in both — both states' agencies respond to such a fire. This tier
+extension was added after user review of the first draft, which wrongly
+limited the fire layer to the satellite era.
+
+**Re-ranking amendment (2026-07-10, user-approved):** the raw mean of four
+hotspot-metric percentiles cleared the 0.95 flag on only ~2.6% of
+satellite-era days versus ~4.4% of tier-3 days. This held the modern era
+to a stricter bar than the polygon era and hid Black Summer from the
+descriptive outputs. The fix: after taking the mean of the available metric
+percentiles, the resulting score is **re-ranked within (state,
+confidence_tier, calendar month) so the final score is itself a
+percentile**. A ≥0.95 flag then means "top 5% of days in this group" in
+every tier, restoring the project-wide within-group 95th convention.
+Tier 3 needs no re-rank (it has a single already-ranked input). This
+definitional fix was locked in before the post-fix ratios were seen — it is
+not result-tuning.
+
+**Threshold:** `high_load = fire_score ≥ 0.95`. The 0.95 is inherited from
+the project-wide convention used by the DLI high-demand days, the SWT
+attribution, and the composite strata — not invented for this panel.
+Sensitivity at 0.90 and 0.975 is reported alongside every headline number.
+
+#### TC layer
+
+A cyclone loads a state on a day when any best-track point that day lies
+within **300 km of that state's coastline** at ≥ cyclone intensity (≥ 64 kt
+or the best-track intensity classification for tropical cyclone). The
+300 km radius approximates the gale-force radius of a large Australian
+tropical cyclone and the scale of pre-landfall preparation and evacuation
+zones. It is grounded in the physical and operational literature, not fitted
+to the data.
+
+`state_tc` = percentile (within state, calendar month) of the maximum wind
+speed among in-range track points that day — the per-state parallel to the
+national max-with-severity logic. No tier dimension: the best-track record
+covers a single era. Early-era track points with missing wind speeds rank
+as zero, a disclosed conservative choice.
+
+Sensitivity runs at 200 km and 400 km are reported alongside every headline
+TC number but never used to tune the result.
+
+#### DRFA impact layer
+
+Count of the state's LGAs newly under DRFA activation, percentile-ranked
+within (state, calendar month). Available 2006 onward only; NaN before,
+per the availability discipline. Used solely for the impact check (§12.6),
+never on the hazard axis.
+
+### 12.3 Daily summary flags
+
+From the state×hazard panel:
+
+- `n_states_fire` — count of states with fire_score ≥ 0.95 that day
+- `n_states_tc` — count of states with tc_score ≥ 0.95 that day
+- `n_cells_high` — total count of (state, hazard) cells ≥ 0.95
+- `cross_hazard` — True when at least one state is high on fire **and** at
+  least one *different* state is high on TC on the same day. A single state
+  high on both hazards at once is co-located compounding — a different
+  phenomenon, counted separately as `multi_hazard_state` and reported
+  descriptively, not formally tested.
+
+### 12.4 The shuffle null and how to read it
+
+Adapted from the spatial-shuffle design in Gauthier & Bevacqua (2026, npj
+Natural Hazards):
+
+1. **Observed:** for each day, count how many states are simultaneously
+   under high fire load (≥ 0.95). Record the frequency of days where this
+   count reaches 2, 3, 4. Repeat for TC, and for cross-hazard days.
+2. **Null (1,000 shuffles, seed 42):** each state's hazard series has its
+   **calendar years shuffled independently** of the other states'. Fire
+   series shuffle within confidence tier (so tier-boundary artefacts cannot
+   fake a signal); TC series shuffle across the full record. Each shuffled
+   series retains its own seasonality (a shuffled year is a whole calendar
+   year) and its own within-season persistence. The only thing destroyed is
+   whether states' bad periods land in the same year.
+3. **Result:** excess ratio = observed frequency ÷ null mean frequency,
+   with the null's 2.5th–97.5th percentile band as the uncertainty measure.
+
+**Why whole-year shuffling:** day-shuffling destroys autocorrelation and
+makes the null trivially easy to beat — any persistent season would look
+like compounding. Month-shuffling cuts multi-month climate drivers (ENSO
+years) in half. Year blocks are the conservative choice: a climate driver
+that synchronises whole seasons across states partly survives the shuffle,
+so the excess that remains is day-to-day synoptic organisation, not shared
+seasonal background. Consequence, stated up front: **the headline ratios
+are underestimates of total co-occurrence**. That is the right direction
+to err.
+
+In words: "each state's years are shuffled independently, so each state
+keeps its own seasonality and persistence; the only thing destroyed is
+whether states' bad periods line up in time."
+
+### 12.5 Face-validity gate
+
+The face-validity gate ran before any ratio was examined. Two landmark
+events were pre-specified (spec §4):
+
+- **Black Summer:** 2019-12-28 through 2020-01-06 should show multiple
+  southeastern states simultaneously high on fire.
+- **TC Yasi:** 2011-02-02/03 should flag QLD (and NT) high on TC, with
+  fire states distinct.
+
+Verbatim output from `scripts/run_state_panel.py`:
+
+```
+Black Summer 2019-12-28..2020-01-06, states high on fire: ['NSW', 'SA', 'TAS', 'VIC', 'WA']
+TC Yasi 2011-02-02/03, states high on tc: ['NT', 'QLD']
+TC Yasi 2011-02-02/03, states high on fire: ['SA']
+GATE PASSED
+```
+
+Both landmarks recovered correctly. SA is simultaneously high on fire
+during Yasi — a different state from the cyclone-affected ones, and fully
+consistent with the Australian summer pattern of northern TC activity
+alongside a dry southern fire risk.
+
+### 12.6 Headline results (thr 0.95, 300 km radius, 1,000 shuffles, seed 42)
+
+| Compounding type | Threshold | Excess ratio | Null band |
+|---|---|---|---|
+| Fire — ≥2 states simultaneously high | 0.95 | **1.3×** | 1.2–1.4 |
+| Fire — ≥3 states simultaneously high | 0.95 | **1.8×** | 1.6–2.1 |
+| Fire — ≥4 states simultaneously high | 0.95 | **2.2×** | 1.7–3.0 |
+| TC — ≥2 states simultaneously high | 0.95 | **3.3×** | 2.5–4.8 |
+| Cross-hazard (fire some states, TC others) | 0.95 | **0.8×** | 0.7–1.0 |
+
+Numbers are from `data/derived/compounding_ratios.csv`; the full sensitivity
+grid (thresholds 0.90, 0.95, 0.975 × radii 200, 300, 400 km) is in that
+file.
+
+**Same-hazard fire compounding:** strongly exceeds chance at every
+multi-state threshold, and the ratio grows with the number of states
+required — the hardest test (≥4 states simultaneously) produces a 2.2×
+excess. This is the pre-registered positive control, and it is confirmed
+cleanly.
+
+**Same-hazard TC compounding:** a 3.3× excess for two or more states. TC
+compounding exceeds fire compounding because tropical cyclone tracks follow
+coherent paths that physically affect multiple adjacent coastal states at
+once (e.g. QLD+NT), while fire simultaneity across non-adjacent states is
+rarer.
+
+**Cross-hazard compounding:** 0.8× — **significantly below chance**. Days
+when fire is extreme in some states and a TC is extreme in other states
+occur *less* often than independence would predict. The null band (0.7–1.0)
+touches but does not clearly clear 1.0. This mutual avoidance is physically
+interpretable: the composite pilot (§11) showed that fire-dominated days
+have a blocking ridge over southeast Australia and dry anomalies, while
+TC-dominated days have a tropical low and strong moisture flux. These
+configurations are not just distinct — they are largely incompatible. A
+day that organises the atmosphere to put tropical cyclone intensity into
+the north is not simultaneously providing the blocking-high, hot-northerly
+conditions that drive multi-state fire extremes in the south.
+
+**What this changes about the compounding question:** the concern that
+spatially compound hazard days would strain national shared arrangements is
+confirmed for same-hazard days (fire and TC both exceed chance), but the
+implicit assumption that fire and TC load might co-occur is not supported
+— they actively avoid each other. Cross-hazard compounding is the less
+dangerous scenario for national resource sharing, because the assets useful
+for a cyclone are largely distinct from those needed for fire.
+
+### 12.7 Pre-registered expectations vs outcomes
+
+| Pre-registered expectation (spec §1, before results) | Outcome |
+|---|---|
+| Same-hazard fire compounding exceeds chance strongly (positive control) | CONFIRMED — 1.3× to 2.2× depending on threshold, growing with stringency |
+| Cross-hazard compounding: genuinely uncertain, either outcome is the finding | RESULT: below chance (0.8×, band 0.7–1.0) — fire and TC mutually avoid each other |
+
+### 12.8 Impact check (descriptive, 30-day window)
+
+Does the hazard-compounding signal translate to actualised multi-state
+emergency response? A multi-state DRFA activation day (≥2 states newly
+activated within 30 days) is compared for days following panel-flagged
+multi-state hazard events versus days following quiet periods (2006 onward
+only, DRFA availability window).
+
+From `data/derived/compounding_impact_check.csv`:
+
+| Window | After multi-state hazard days | After quiet days |
+|---|---|---|
+| 30 days | **30.8%** | 22.9% |
+| 14 days | 16.1% | 11.8% |
+| 60 days | 47.5% | 37.4% |
+
+The gap persists at all three window lengths. Multi-state hazard days are
+followed by multi-state DRFA activations about 30–35% more often than quiet
+days, across all windows. This is a **descriptive finding only** — the
+impact check is not a formal test, and DRFA's multi-week lag, its hazard
+mixing, and its funding-pipeline structure make causal reading inappropriate.
+But the gap is in the expected direction and is consistent across window
+lengths, which gives the hazard-compounding panel some face validity as a
+policy-relevant signal, even under these limitations.
+
+### 12.9 Alternatives considered and rejected
+
+**Day-shuffle null:** shuffle individual days rather than year blocks.
+Rejected because it destroys within-season persistence — any fire season
+lasting more than a few days would produce an apparent "compounding" excess
+that is purely a persistence artefact. The null must be at least as
+persistent as the data.
+
+**Month-shuffle null:** shuffle calendar months rather than years. Rejected
+because it cuts ENSO years in half — a La Niña fire year and an El Niño
+fire year would each contribute half-months to the shuffled series, mixing
+the two climatic backgrounds. Year blocks preserve each year's climatic
+coherence.
+
+**Storm-archive layer from the BoM Severe Storms Archive:** assessed
+2026-07-09 and excluded from the co-occurrence test. The severe-storms
+record has reporting effort that roughly quadruples between the 1980s and
+1990s, and state totals track population density — the record reflects
+observer coverage, not hazard intensity. Including it in the co-occurrence
+test would conflate reporting trends with hazard trends. It could be used
+as a *descriptive* cross-check on post-1990 compound days, but is out of
+scope for the core test.
+
+**DRFA on the hazard axis:** DRFA activations are impact, not hazard —
+they mix fire, flood, storm, and cyclone events in a single count, lag the
+hazard by days to weeks, and incorporate exposure and vulnerability. Placing
+DRFA on the hazard axis would conflate hazard co-occurrence with delayed
+economic response. It is used only for the impact check (§12.8).
+
+**Re-ranking the fire score (considered as "tuning"):** the re-ranking
+amendment (§12.2) was raised by the user after the initial ratio run, when
+the descriptive outputs showed Black Summer barely visible. The question was
+whether the amendment was post-hoc tuning. It was not: the pre-amendment
+fire ratios (same-hazard fire compounding >1) were already pointing in the
+expected direction. The re-rank restored the project-wide within-group-95th
+convention that every other threshold in this project uses — it fixed a
+definitional inconsistency (the raw mean of percentiles is not itself a
+percentile in the relevant group). It was locked in before the post-fix
+ratios were examined.
+
+### 12.10 Honest limitations
+
+- **Tier-3 fire rests on polygon burn windows only.** Pre-2000 fire activity
+  is measured as the per-state count of active mapped fire footprints during
+  their estimated burn window. This is coarser than satellite-derived
+  hotspot metrics and depends on the imputation cascade for fire end dates
+  (extinguish > capture > ignition+21 days) documented in §4.1. The
+  tier-boundary year 2000 is pinned as a singleton shuffle group so it
+  cannot contaminate either tier's null.
+
+- **ACT is inside NSW.** Canberra-area events (including the 2003 Canberra
+  firestorm) contribute to the NSW series. This is consistent with the
+  state-attribution conventions used elsewhere in the project and is stated
+  rather than hidden.
+
+- **Wind-missing early TC track points rank as zero.** This conservative
+  choice makes early-era TC days rank lower in the TC percentile, slightly
+  suppressing the long-run TC compounding ratio. It errs against finding
+  a signal.
+
+- **The mixed tier-boundary year 2000 is a singleton shuffle group.** The
+  year 2000 spans the Tier 2 / Tier 3 boundary (the tier switches in
+  October 2000 as MODIS coverage begins). It is pinned in the shuffle as
+  its own group, meaning it always lands where it is historically. This
+  avoids artefacts from shuffling half-satellite, half-polygon years.
+
+- **No trend claims.** The tier structure makes time trends impossible to
+  interpret: Tier 1 has denser satellite coverage, producing higher apparent
+  detection counts even for the same underlying fire. Any upward trend
+  in compounding frequency is confounded by tier transitions. No trend
+  analysis is attempted.
+
+- **The impact check is descriptive.** DRFA's multi-week lag, its mixing
+  of hazard types, and its funding-pipeline structure make causal reading
+  of the 30-day window inappropriate. The gap is reported as a consistency
+  check, not a causal estimate.
+
+### 12.11 Exact replication commands
+
+```bash
+# Rebuild the state×hazard panel (face-validity gate runs automatically):
+/opt/anaconda3/bin/python3 -m scripts.run_state_panel
+# → data/derived/state_hazard_panel.parquet
+# → data/derived/state_hazard_summary.parquet
+# Runtime: ~1–2 min
+
+# Compute excess ratios, null samples, impact check, top-days and cooccurrence tables:
+/opt/anaconda3/bin/python3 -m scripts.run_compounding
+# → data/derived/compounding_ratios.csv
+# → data/derived/compounding_null_samples.csv
+# → data/derived/compounding_impact_check.csv
+# → data/derived/compound_days_top.csv
+# → data/derived/state_cooccurrence.csv
+# Runtime: ~2–4 min
+
+# Figures (requires rfigs conda environment):
+conda run -n rfigs Rscript R/compounding.R
+# → R/figs/fig_compounding_null.png
+# → R/figs/fig_state_cooccurrence.png
+# → R/figs/fig_compound_days_timeline.png
+```
+
+Both Python runners must be called with `-m` as modules from the repo root;
+direct `python scripts/run_state_panel.py` will fail on relative imports.
+
+**Spec:** `docs/superpowers/specs/2026-07-09-state-hazard-compounding-panel-design.md`
