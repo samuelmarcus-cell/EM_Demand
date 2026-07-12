@@ -61,10 +61,10 @@ Every component carries a per-tier availability flag; nothing NaN-fills silently
   depend on the SWT labels. Weather objects
   (`docs/phase2_weather_objects_notes.md`) follow in the full compound-day
   analysis.
-- **Phase 3 (`scripts/phase3_compounding/`):** multi-hazard co-occurrence matrix
-  (fire × flood × TC × heatwave at 0/±7/±30-day lags); hemispheric overlap with
-  NIFC/CIFFC northern-hemisphere demand. Data: demand panel, NIFC preparedness
-  levels, CIFFC sitreps.
+- **Phase 3 (`scripts/phase3_compounding/`):** **state×hazard co-occurrence panel
+  + shuffle-null analysis complete** (see Compounding panel figures above);
+  remaining: hemispheric overlap with NIFC/CIFFC northern-hemisphere demand.
+  Data: demand panel, NIFC preparedness levels, CIFFC sitreps.
 - **Phase 4 (`scripts/phase4_capacity/`):** tiered capacity/escalation model
   (local → intrastate → interstate → international → ADF), "no donor available"
   day detection, storyline stress tests. Params stakeholder-elicited.
@@ -100,6 +100,16 @@ all pre-registered predictions confirmed — see
   for DRFA-led days. DRFA is a funding activation, not a hazard, so it is
   kept out of the main hazard panels; shown for completeness, excluded from
   the fingerprint comparison
+
+**Compounding panel figures** (state×hazard co-occurrence; spec
+`docs/superpowers/specs/2026-07-09-state-hazard-compounding-panel-design.md`;
+rendered by `R/compounding.R` from CSVs written by `scripts/run_compounding.py`):
+
+- `fig_compounding_null.png` — observed vs 1,000-shuffle null distributions of
+  simultaneous high-hazard-load state counts, one panel per compounding type
+- `fig_state_cooccurrence.png` — state×state joint high-load day counts, by hazard
+- `fig_compound_days_timeline.png` — the 30 biggest compound days, labelled by
+  state and hazard
 
 ## Layout
 
